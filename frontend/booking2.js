@@ -490,7 +490,7 @@
     msg.style.display = "none";
 
     // ── API base URL ───────────────────────────────────────────────────────
-    const apiBase = "https://cloudnandy-1cvn.onrender.com";
+    const apiBase = "https://cloudynandyhills.onrender.com";
 
     // Save booking details for the payment-return page to display
     localStorage.setItem("cloudNandyLatestBooking", JSON.stringify({

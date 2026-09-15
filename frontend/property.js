@@ -1,4 +1,4 @@
-const API_BASE = "https://cloudnandy-1cvn.onrender.com";
+const API_BASE = "https://cloudynandyhills.onrender.com";
 
 const today = new Date();
 today.setHours(0, 0, 0, 0);

@@ -25,7 +25,7 @@ services:
       - key: CCAVENUE_URL
         value: https://secure.ccavenue.com/transaction/transaction.do?command=initiateTransaction
       - key: BACKEND_URL
-        value: https://cloudnandy-1cvn.onrender.com
+        value: https://cloudynandyhills.onrender.com
       - key: FRONTEND_URL
         value: https://mnccoimbatore.in
       - key: CCAVENUE_REDIRECT_DOMAIN

@@ -6,7 +6,7 @@ window.CLOUD_NANDY_SUPABASE = {
 };
 
 // ── Backend API URL ──────────────────────────────────────────────────────────
-window.CLOUD_NANDY_API_URL = "https://cloudnandy-1cvn.onrender.com";
+window.CLOUD_NANDY_API_URL = "https://cloudynandyhills.onrender.com";
 
 if (window.supabase) {
   window.supabaseClient = window.supabase.createClient(
