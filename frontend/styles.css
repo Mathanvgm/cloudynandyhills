@@ -2599,14 +2599,15 @@ textarea:focus {
 }
 
 /* ==========================================
-   HEADER — Scroll shrink effect
+   HEADER — Scroll shrink + hide/show effect
    ========================================== */
 
 .site-header {
   transition:
     padding 0.4s ease,
     background 0.4s ease,
-    box-shadow 0.4s ease;
+    box-shadow 0.4s ease,
+    transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .site-header.scrolled {
@@ -2615,6 +2616,10 @@ textarea:focus {
   background: rgba(17, 25, 22, 0.97);
   box-shadow: 0 4px 32px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(18px);
+}
+
+.site-header.header-hidden {
+  transform: translateY(-100%);
 }
 
 /* ==========================================

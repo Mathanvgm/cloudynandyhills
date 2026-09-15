@@ -1,4 +1,4 @@
-const API_BASE = window.CLOUD_NANDY_API_URL || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://localhost:3000" : "https://cloud-nandy-api.onrender.com");
+const API_BASE = "https://cloudnandy-1cvn.onrender.com";
 
 const today = new Date();
 today.setHours(0, 0, 0, 0);

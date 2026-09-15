@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cloud Nandy Admin | Property Manager</title>
+    <meta
+      name="description"
+      content="Cloud Nandy admin panel for uploading hotel properties, prices, descriptions, and images."
+    />
+    <link rel="stylesheet" href="./styles.css?v=200" />
+  </head>
+  <body class="admin-page">
+    <main class="admin-shell">
+      <section id="loginPanel" class="login-panel">
+        <div class="login-card" data-reveal>
+          <a class="brand admin-brand" href="./index.html" aria-label="Cloud Nandy Hills home">
+            <img src="./image.jpg" alt="Cloud Nandy Logo" class="brand-logo" />
+            <span>Cloud Nandy Hills</span>
+          </a>
+          <p class="eyebrow">Admin access</p>
+          <h1>Property Manager</h1>
+          <p class="login-copy">
+            Sign in to upload properties, manage room images, and publish new
+            options to the booking website.
+          </p>
+
+          <form id="loginForm" class="login-form">
+            <label>
+              Username
+              <input id="adminUsername" type="text" autocomplete="username" placeholder="admin" required />
+            </label>
+            <label>
+              Password
+              <input
+                id="adminPassword"
+                type="password"
+                autocomplete="current-password"
+                placeholder="Enter password"
+                required
+              />
+            </label>
+            <p id="loginMessage" class="form-message" role="status"></p>
+            <button class="button primary full" type="submit">Login</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="dashboardPanel" class="dashboard-panel" hidden>
+        <header class="dashboard-header" data-reveal>
+          <div class="header-brand-wrap">
+            <a class="brand dashboard-brand" href="./index.html" aria-label="Cloud Nandy Hills home">
+              <img src="./image.jpg" alt="Cloud Nandy Logo" class="brand-logo" />
+              <span>Cloud Nandy Hills</span>
+            </a>
+            <p class="admin-subtitle">Admin dashboard</p>
+          </div>
+
+          <nav class="center-pill-nav" aria-label="Admin Navigation">
+            <a class="pill-nav-item" href="./index.html">View Website</a>
+            <button id="navBookingTab" class="pill-nav-item">Booking</button>
+            <button id="navEditTab" class="pill-nav-item active">Edit Website</button>
+          </nav>
+
+          <div class="dashboard-actions">
+            <button id="logoutButton" class="button dark logout-btn" type="button">Logout</button>
+          </div>
+        </header>
+
+        <section class="admin-overview" aria-label="Admin overview" data-reveal data-delay="1">
+          <div>
+            <span>Total Properties</span>
+            <strong id="totalProperties">0</strong>
+          </div>
+          <div>
+            <span>Latest Upload</span>
+            <strong id="latestUpload">None</strong>
+          </div>
+          <div>
+            <span>Total Bookings</span>
+            <strong id="totalBookingsOverview">—</strong>
+          </div>
+          <div>
+            <span>Currency</span>
+            <strong>INR</strong>
+          </div>
+        </section>
+
+        <!-- ── EDIT WEBSITE TAB ─────────────────────────────────── -->
+        <section id="editTab" class="admin-workspace">
+          <form id="propertyForm" class="admin-form" data-reveal data-delay="2">
+            <div class="section-heading compact">
+              <p class="eyebrow">New listing</p>
+              <h2>Upload property</h2>
+            </div>
+
+            <div class="form-row">
+              <label>
+                Property name
+                <input id="propertyName" type="text" placeholder="Premium Family Room" required />
+              </label>
+              <label>
+                Price per night
+                <input id="propertyPrice" type="number" min="1" placeholder="15999" required />
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label>
+                Property type
+                <select id="propertyType" required>
+                  <option value="Room">Room</option>
+                  <option value="Suite">Suite</option>
+                  <option value="Villa">Villa</option>
+                  <option value="Apartment">Apartment</option>
+                </select>
+              </label>
+              <label>
+                Guests Allowed
+                <input id="propertyGuestsAllowed" type="number" min="1" placeholder="2" />
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label>
+                Check-in time
+                <input id="propertyCheckIn" type="text" placeholder="e.g. 01:00 PM" />
+              </label>
+              <label>
+                Check-out time
+                <input id="propertyCheckOut" type="text" placeholder="e.g. 11:00 AM" />
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label>
+                Images
+                <input
+                  id="propertyImage"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  multiple
+                  required
+                />
+              </label>
+            </div>
+
+            <label>
+              Description
+              <textarea
+                id="propertyDescription"
+                rows="4"
+                placeholder="Add beds, view, facilities, and other important details..."
+                required
+              ></textarea>
+            </label>
+
+            <div class="image-preview" id="imagePreview">
+              <span>Image previews will appear here</span>
+            </div>
+
+            <p id="adminMessage" class="form-message" role="status"></p>
+            <div class="admin-form-actions">
+              <button id="propertySubmitButton" class="button primary full" type="submit">
+                Publish Property
+              </button>
+              <button id="cancelEditButton" class="button muted full" type="button" hidden>
+                Cancel Edit
+              </button>
+            </div>
+          </form>
+
+          <div class="admin-list-wrap" data-reveal data-delay="3">
+            <div class="admin-list-head">
+              <div>
+                <p class="eyebrow">Inventory</p>
+                <h3>Uploaded properties</h3>
+              </div>
+              <button id="clearProperties" class="text-button" type="button">Refresh list</button>
+            </div>
+            <div id="propertyList" class="property-list" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <!-- ── BOOKINGS TAB ─────────────────────────────────────── -->
+        <section id="bookingTab" hidden style="width:100%;padding:28px 32px 60px;box-sizing:border-box;">
+
+          <!-- Toolbar -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+            <div>
+              <p style="margin:0;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#b45f3c;">RESERVATIONS</p>
+              <h2 style="margin:4px 0 0;font-size:1.8rem;font-weight:800;color:#17211d;display:flex;align-items:center;gap:10px;">
+                All Bookings
+                <span id="bookingsCount" style="background:#b45f3c;color:#fff;font-size:0.82rem;font-weight:800;border-radius:999px;padding:2px 12px;">0</span>
+              </h2>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+              <input id="bookingsSearch" type="search" placeholder="Search name, email, phone…"
+                style="padding:9px 14px;border:1px solid #dde3ea;border-radius:8px;font-size:0.88rem;width:200px;outline:none;font-family:inherit;background:#fff;color:#17211d;box-sizing:border-box;" />
+              <select id="bookingsStatusFilter"
+                style="padding:9px 14px;border:1px solid #dde3ea;border-radius:8px;font-size:0.88rem;background:#fff;color:#17211d;outline:none;cursor:pointer;font-family:inherit;box-sizing:border-box;">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="failed">Failed</option>
+                <option value="completed">Completed</option>
+              </select>
+              <button id="refreshBookings" class="button primary" type="button" style="white-space:nowrap;flex-shrink:0;">↻ Refresh</button>
+            </div>
+          </div>
+
+          <p id="bookingsMessage" class="bookings-msg" hidden></p>
+
+          <!-- Table -->
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow-x:auto;box-shadow:0 2px 16px rgba(0,0,0,0.06);width:100%;">
+            <table style="width:100%;min-width:900px;border-collapse:collapse;font-size:0.875rem;font-family:inherit;table-layout:auto;">
+              <thead>
+                <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Name</th>
+                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Phone</th>
+                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Email</th>
+                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Room</th>
+                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Check-In → Out</th>
+                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Amount</th>
+                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Booked At</th>
+                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Status</th>
+                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="bookingsTbody">
+                <tr><td colspan="9" style="text-align:center;padding:44px;color:#94a3b8;font-style:italic;">Loading bookings…</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+
+      </section>
+    </main>
+
+    <!-- ── Booking Detail Modal ──────────────────────────────────────── -->
+    <div id="bookingDetailOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
+      <div id="bookingDetailModal" style="background:#fff;border-radius:18px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.22);font-family:inherit;position:relative;">
+
+        <!-- Modal Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:24px 28px 0;">
+          <div>
+            <p style="margin:0;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#b45f3c;">BOOKING DETAILS</p>
+            <h2 id="bdmTitle" style="margin:4px 0 0;font-size:1.4rem;font-weight:800;color:#17211d;"></h2>
+          </div>
+          <button id="bookingDetailClose" aria-label="Close" style="background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#64748b;transition:background 0.15s;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div id="bookingDetailBody" style="padding:20px 28px 28px;"></div>
+
+        <!-- Modal Footer -->
+        <div style="padding:0 28px 28px;display:flex;justify-content:flex-end;gap:10px;">
+          <button id="bookingDetailDownload" style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;background:#17211d;color:#fff;border:none;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download PDF
+          </button>
+          <button id="bookingDetailCloseBtn" style="padding:11px 22px;background:#f1f5f9;color:#17211d;border:none;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit;">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Print-only styles for PDF export -->
+    <style>
+      #bookingPrintArea { display: none; }
+    </style>
+    <div id="bookingPrintArea"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./supabase-config.js?v=12"></script>
+    <script src="./admin.js?v=12"></script>
+    <script src="./admin-bookings.js?v=1"></script>
+    <script src="./animations.js?v=12"></script>
+    <script>
+      // ── Tab switching ─────────────────────────────────────────
+      const navBookingTab = document.getElementById("navBookingTab");
+      const navEditTab    = document.getElementById("navEditTab");
+      const editTab       = document.getElementById("editTab");
+      const bookingTab    = document.getElementById("bookingTab");
+
+      function showEditTab() {
+        editTab.hidden = false;
+        bookingTab.hidden = true;
+        document.querySelector('.admin-overview').hidden = false;
+        navEditTab.classList.add("active");
+        navBookingTab.classList.remove("active");
+      }
+
+      function showBookingTab() {
+        editTab.hidden = true;
+        bookingTab.hidden = false;
+        document.querySelector('.admin-overview').hidden = true;
+        navBookingTab.classList.add("active");
+        navEditTab.classList.remove("active");
+        if (window.loadAdminBookings) window.loadAdminBookings();
+      }
+
+      navBookingTab.addEventListener("click", showBookingTab);
+      navEditTab.addEventListener("click", showEditTab);
+    </script>
+  </body>
+</html>

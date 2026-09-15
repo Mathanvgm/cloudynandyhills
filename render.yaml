@@ -2,7 +2,7 @@ services:
   - type: web
     name: cloud-nandy-api
     runtime: node
-    rootDir: server
+    rootDir: backend
     buildCommand: npm install
     startCommand: node server.js
     envVars:
@@ -25,6 +25,8 @@ services:
       - key: CCAVENUE_URL
         value: https://secure.ccavenue.com/transaction/transaction.do?command=initiateTransaction
       - key: BACKEND_URL
-        value: https://cloud-nandy-api.onrender.com
+        value: https://cloudnandy-1cvn.onrender.com
       - key: FRONTEND_URL
         value: https://mnccoimbatore.in
+      - key: CCAVENUE_REDIRECT_DOMAIN
+        value: https://www.cloudynandyhills.com
