@@ -59,9 +59,14 @@ app.use(
   cors({
     origin: function (origin, callback) {
       // Allow requests with no origin (mobile apps, curl, server-to-server)
-      // and "null" origin (file:// protocol used during local development).
+      // Allow "null" string origin from file:// protocol (local development)
       // When ALLOWED_ORIGIN is "*", accept every origin.
-      if (!origin || ALLOWED_ORIGIN === "*" || origin === ALLOWED_ORIGIN) {
+      if (
+        !origin ||
+        origin === "null" ||
+        ALLOWED_ORIGIN === "*" ||
+        origin === ALLOWED_ORIGIN
+      ) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -69,8 +74,12 @@ app.use(
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: false,
   })
 );
+
+// Handle OPTIONS preflight explicitly for all routes
+app.options("*", cors());
 app.use(express.json());
 
 // Multer: store uploaded files in memory so we can pipe them to Supabase Storage
@@ -616,11 +625,12 @@ app.listen(PORT, () => {
       });
       req.end();
     };
-    // First ping after 1 minute, then every 14 minutes
+    // First ping after 30 seconds, then every 10 minutes
+    // (Render free tier spins down after 15 min — ping every 10 min stays well within)
     setTimeout(() => {
       ping();
-      setInterval(ping, 14 * 60 * 1000);
-    }, 60 * 1000);
-    console.log(`💓 Keep-alive enabled → pinging ${SELF_URL}/api/health every 14 min`);
+      setInterval(ping, 10 * 60 * 1000);
+    }, 30 * 1000);
+    console.log(`💓 Keep-alive enabled → pinging ${SELF_URL}/api/health every 10 min`);
   }
 });
