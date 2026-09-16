@@ -8,7 +8,7 @@
   <meta name="description"
     content="Cloud Nandy Hills Camping Stay — 4.8★ rated camping cabin in Poombarai, Kodaikanal, Tamil Nadu. Book your stay with stunning hill views." />
   <link rel="preconnect" href="https://images.unsplash.com" />
-  <link rel="stylesheet" href="./styles.css?v=3" />
+  <link rel="stylesheet" href="./styles.css?v=2026" />
 </head>
 
 <body>
@@ -28,7 +28,12 @@
       <img src="./image.jpg" alt="Cloud Nandy Logo" class="brand-logo" />
       <span>Cloud Nandy Hills</span>
     </a>
-    <nav class="nav" aria-label="Primary navigation">
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="primaryNav">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <nav class="nav" id="primaryNav" aria-label="Primary navigation">
       <a href="#top" class="nav-link" id="navHome">Home</a>
       <a href="#rooms" class="nav-link">Rooms</a>
       <a href="#attractions" class="nav-link">Attractions</a>
@@ -156,9 +161,30 @@
 
     <section id="rooms" class="section rooms">
       <div class="section-heading" data-reveal>
-        <p class="eyebrow">Rooms</p>
+        <p class="eyebrow">Rooms & Stays</p>
         <h2>Choose your stay</h2>
       </div>
+
+      <!-- Room Filter & Sort Bar -->
+      <div class="room-controls-bar" data-reveal>
+        <div class="room-filter-pills" id="indexRoomFilters">
+          <button type="button" class="room-filter-btn active" data-filter="all">All Rooms</button>
+          <button type="button" class="room-filter-btn" data-filter="cabin">Wooden Cabins</button>
+          <button type="button" class="room-filter-btn" data-filter="mountain">Mountain View</button>
+          <button type="button" class="room-filter-btn" data-filter="family">Family Stays</button>
+        </div>
+        <div class="room-sort-wrap">
+          <span class="room-count-badge" id="roomCountBadge">Loading...</span>
+          <label class="room-sort-label" for="indexRoomSort">Sort:</label>
+          <select id="indexRoomSort" class="room-sort-select" aria-label="Sort rooms">
+            <option value="featured">Featured</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="name-asc">Name: A to Z</option>
+          </select>
+        </div>
+      </div>
+
       <div class="room-grid" id="roomGrid">
         <p class="empty-list">Loading properties from Supabase...</p>
       </div>
@@ -689,7 +715,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./supabase-config.js?v=3"></script>
-  <script src="./script.js?v=3"></script>
+  <script src="./script.js?v=2026"></script>
   <script src="./animations.js?v=3"></script>
   <script src="./lightbox.js?v=3"></script>
   <script>

@@ -17,7 +17,12 @@
       <img src="./image.jpg" alt="Cloud Nandy Logo" class="brand-logo" />
       <span>Cloud Nandy Hills</span>
     </a>
-    <nav class="nav" aria-label="Primary navigation">
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="propertyNav">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <nav class="nav" id="propertyNav" aria-label="Primary navigation">
       <a href="./index.html" class="nav-link">Home</a>
       <a href="./index.html#rooms" class="nav-link">Rooms</a>
       <a href="./booking.html" class="nav-link">Book</a>
@@ -211,9 +216,29 @@
   <script src="./animations.js?v=2"></script>
   <script>
     const header = document.getElementById("siteHeader");
+    const navToggle = document.getElementById("navToggle");
     window.addEventListener("scroll", () => {
       header.classList.toggle("scrolled", window.scrollY > 60);
     }, { passive: true });
+
+    if (navToggle && header) {
+      navToggle.addEventListener("click", () => {
+        const isOpen = header.classList.toggle("nav-open");
+        navToggle.setAttribute("aria-expanded", String(isOpen));
+      });
+      header.querySelectorAll(".nav a").forEach((link) => {
+        link.addEventListener("click", () => {
+          header.classList.remove("nav-open");
+          navToggle.setAttribute("aria-expanded", "false");
+        });
+      });
+      document.addEventListener("click", (e) => {
+        if (!header.contains(e.target) && header.classList.contains("nav-open")) {
+          header.classList.remove("nav-open");
+          navToggle.setAttribute("aria-expanded", "false");
+        }
+      });
+    }
   </script>
 </body>
 

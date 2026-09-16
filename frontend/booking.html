@@ -35,7 +35,6 @@
       /* ── Booking Page Reset ── */
       body.booking-page {
         background: #f2f2f2 !important;
-        background-attachment: fixed !important;
         min-height: 100vh;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
@@ -354,6 +353,138 @@
       }
       .bk-avail-btn:hover { background: #9a4f32; }
 
+      /* ── Availability Alert Banner ── */
+      .bk-avail-alert {
+        margin-bottom: 20px;
+        padding: 12px 18px;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+      .bk-avail-alert.success {
+        background: #e8f5e9;
+        color: #1b5e20;
+        border: 1px solid #a5d6a7;
+      }
+      .bk-avail-alert.error {
+        background: #ffebee;
+        color: #b71c1c;
+        border: 1px solid #ffcdd2;
+      }
+      .bk-avail-alert-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .bk-avail-alert-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: currentColor;
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 800;
+      }
+
+      /* ── Room Filter & Sort Bar ── */
+      .bk-filter-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 24px;
+        padding: 12px 16px;
+        background: #ffffff;
+        border: 1px solid rgba(180, 95, 60, 0.15);
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+      }
+      .bk-filter-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .bk-pill {
+        background: #f4efe6;
+        border: 1px solid rgba(180, 95, 60, 0.2);
+        color: #333333;
+        padding: 7px 16px;
+        border-radius: 20px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .bk-pill:hover {
+        background: #eadecc;
+        color: #b45f3c;
+      }
+      .bk-pill.active {
+        background: #b45f3c;
+        color: #ffffff;
+        border-color: #b45f3c;
+        box-shadow: 0 2px 8px rgba(180, 95, 60, 0.35);
+      }
+      .bk-filter-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+      }
+      .bk-results-count {
+        font-size: 0.8rem;
+        color: #666;
+        font-weight: 600;
+        background: #f8f8f8;
+        padding: 4px 10px;
+        border-radius: 12px;
+        border: 1px solid #e0e0e0;
+      }
+      .bk-sort-lbl {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #555;
+      }
+      .bk-sort-dropdown {
+        padding: 6px 28px 6px 10px;
+        background: #ffffff;
+        border: 1px solid rgba(0,0,0,0.2);
+        border-radius: 4px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #222;
+        cursor: pointer;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23333333' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+      }
+      .bk-sort-dropdown:focus {
+        border-color: #b45f3c;
+      }
+      @media (max-width: 600px) {
+        .bk-filter-bar {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 10px;
+        }
+        .bk-filter-actions {
+          margin-left: 0;
+          justify-content: space-between;
+          width: 100%;
+        }
+        .bk-sort-dropdown {
+          flex: 1;
+        }
+      }
+
       /* ── Loading / Empty ── */
       .bk-loading {
         padding: 40px 20px;
@@ -436,7 +567,7 @@
       .bk-facilities h4 {
         font-size: 0.88rem;
         font-weight: 700;
-        color: #ffffff;
+        color: #222222;
         border-bottom: 2px solid #b45f3c;
         display: inline-block;
         margin: 0 0 10px 0;
@@ -942,9 +1073,83 @@
         .ck-cols { flex-direction: column; }
         .ck-right { position: static; width: 100%; flex: none; }
       }
-      @media (max-width: 700px) {
-        .bk-room-body { flex-direction: column; }
-        .bk-room-img-wrap { flex: 0 0 auto; }
+      @media (max-width: 768px) {
+        .property-banner {
+          padding: 16px 18px;
+        }
+        .property-banner h1 {
+          font-size: 1.5rem;
+        }
+        .bk-container {
+          padding: 18px 14px 40px;
+        }
+        .bk-avail {
+          padding: 14px 16px;
+        }
+        .bk-avail-controls {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+        }
+        .bk-avail-controls select#checkIn_hotel {
+          grid-column: span 2;
+          width: 100%;
+        }
+        .bk-avail-controls input[type="number"] {
+          flex: 1;
+          width: 100%;
+          min-width: 0;
+        }
+        .bk-avail-btn {
+          grid-column: span 2;
+          width: 100%;
+          padding: 12px;
+          text-align: center;
+        }
+        .bk-room-body {
+          flex-direction: column;
+          padding: 14px;
+          gap: 14px;
+        }
+        .bk-room-img-wrap {
+          flex: 0 0 auto;
+          width: 100%;
+        }
+        .bk-slide-img {
+          aspect-ratio: 16/10;
+        }
+        .ck-wrap {
+          padding: 0 12px 40px;
+        }
+        .ck-topbar {
+          padding: 12px 18px;
+        }
+        .ck-section-body {
+          padding: 14px 16px;
+        }
+        .ck-book-now {
+          width: 100%;
+        }
+      }
+      @media (max-width: 480px) {
+        .bk-avail-controls {
+          grid-template-columns: 1fr;
+        }
+        .bk-avail-controls select#checkIn_hotel,
+        .bk-avail-btn {
+          grid-column: span 1;
+        }
+        .bk-info-bar {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        .bk-info-bar > span:last-child {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+        }
       }
     </style>
   </head>
@@ -978,6 +1183,34 @@
           <input type="date" id="checkOut" />
           <input type="number" id="roomsCount" value="1" min="1" max="10" />
           <button class="bk-avail-btn" id="checkAvailBtn">Check Availability</button>
+        </div>
+      </div>
+
+      <!-- Availability Feedback Alert Banner -->
+      <div id="bkAvailAlert" class="bk-avail-alert" style="display: none;">
+        <div class="bk-avail-alert-content">
+          <span class="bk-avail-alert-icon" id="bkAvailAlertIcon">✓</span>
+          <span id="bkAvailAlertMsg"></span>
+        </div>
+      </div>
+
+      <!-- Room Filter & Sort Bar -->
+      <div class="bk-filter-bar">
+        <div class="bk-filter-pills" id="bkFilterPills">
+          <button type="button" class="bk-pill active" data-filter="all">All Rooms</button>
+          <button type="button" class="bk-pill" data-filter="cabin">Wooden Cabins</button>
+          <button type="button" class="bk-pill" data-filter="mountain">Mountain View</button>
+          <button type="button" class="bk-pill" data-filter="family">Family Stays</button>
+        </div>
+        <div class="bk-filter-actions">
+          <span class="bk-results-count" id="bkResultsCount"></span>
+          <label class="bk-sort-lbl" for="bkSortSelect">Sort:</label>
+          <select id="bkSortSelect" class="bk-sort-dropdown" aria-label="Sort available rooms">
+            <option value="default">Featured</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="name-asc">Room Name: A to Z</option>
+          </select>
         </div>
       </div>
 

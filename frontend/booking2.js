@@ -21,14 +21,20 @@
   const fmtRaw = (n) => Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2 });
   const esc = (v) => String(v || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 
-  // ── Date Defaults ────────────────────────────────────────────────────────────
+  // ── Date Defaults & URL Parameters ──────────────────────────────────────────
+  const urlParams = new URLSearchParams(window.location.search);
   const ci = $("checkIn");
   const co = $("checkOut");
   const rc = $("roomsCount");
 
+  const paramGuests = urlParams.get("guests");
+  if (paramGuests && rc) {
+    rc.value = paramGuests;
+  }
+
   if (ci) {
     ci.min = toVal(today);
-    ci.value = new URLSearchParams(window.location.search).get("checkIn") || toVal(addDay(today, 1));
+    ci.value = urlParams.get("checkIn") || toVal(addDay(today, 1));
     ci.addEventListener("change", () => {
       const s = new Date(ci.value + "T00:00:00");
       co.min = toVal(addDay(s, 1));
@@ -38,7 +44,7 @@
   }
   if (co) {
     co.min = toVal(addDay(today, 2));
-    co.value = new URLSearchParams(location.search).get("checkOut") || toVal(addDay(today, 2));
+    co.value = urlParams.get("checkOut") || toVal(addDay(today, 2));
     co.addEventListener("change", () => renderSidebar());
   }
 
@@ -55,8 +61,11 @@
   const extraSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>`;
 
   // ── State ────────────────────────────────────────────────────────────────────
+  let allRooms = [];
   let rooms = [];
   let cart = null;
+  let activeFilter = urlParams.get("filter") || "all";
+  let activeSort = "default";
 
   // ── Sidebar ──────────────────────────────────────────────────────────────────
   function renderSidebar() {
@@ -228,26 +237,28 @@
                 <span class="bk-std-price">${fmtRaw(excRate)}</span>
               </div>
 
-              <table class="bk-rate-table">
-                <thead>
-                  <tr>
-                    <th>Pax</th>
-                    <th>${personSVG}</th>
-                    <th>${twoPersonSVG}</th>
-                    <th>${childSVG}</th>
-                    <th>${extraSVG}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Rate</td>
-                    <td>${fmt(excRate)}</td>
-                    <td>${fmt(excRate)}</td>
-                    <td>${fmt(extraChildExc)}</td>
-                    <td>₹0</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="bk-table-responsive">
+                <table class="bk-rate-table">
+                  <thead>
+                    <tr>
+                      <th>Pax</th>
+                      <th>${personSVG}</th>
+                      <th>${twoPersonSVG}</th>
+                      <th>${childSVG}</th>
+                      <th>${extraSVG}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Rate</td>
+                      <td>${fmt(excRate)}</td>
+                      <td>${fmt(excRate)}</td>
+                      <td>${fmt(extraChildExc)}</td>
+                      <td>₹0</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
               <p class="bk-tax-note"><span style="color:red">*</span> Taxes added to Actual Rates depending on No.of Sleeps</p>
 
@@ -259,42 +270,44 @@
                 </span>
               </div>
 
-              <table class="bk-config-table" id="cfg-${esc(r.id)}">
-                <thead>
-                  <tr>
-                    <th>Rooms</th>
-                    <th>Adult <small style="font-weight:normal">(Pax Per Room)</small></th>
-                    <th>Child <small style="font-weight:normal">(Total Pax)</small></th>
-                    <th>Extra <small style="font-weight:normal">(Total Pax)</small></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>1</td>
-                    <td>
-                      <select class="bk-config-select" data-role="adults" data-rid="${esc(r.id)}">
-                        <option value="1">1</option>
-                        <option value="2" selected>2</option>
-                        <option value="3">3</option>
-                      </select>
-                    </td>
-                    <td>
-                      <select class="bk-config-select" data-role="children" data-rid="${esc(r.id)}">
-                        <option value="0" selected>0</option>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                      </select>
-                    </td>
-                    <td>
-                      <select class="bk-config-select" data-role="extra" data-rid="${esc(r.id)}">
-                        <option value="0" selected>0</option>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                      </select>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="bk-table-responsive">
+                <table class="bk-config-table" id="cfg-${esc(r.id)}">
+                  <thead>
+                    <tr>
+                      <th>Rooms</th>
+                      <th>Adult <small style="font-weight:normal">(Pax Per Room)</small></th>
+                      <th>Child <small style="font-weight:normal">(Total Pax)</small></th>
+                      <th>Extra <small style="font-weight:normal">(Total Pax)</small></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>1</td>
+                      <td>
+                        <select class="bk-config-select" data-role="adults" data-rid="${esc(r.id)}">
+                          <option value="1">1</option>
+                          <option value="2" selected>2</option>
+                          <option value="3">3</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select class="bk-config-select" data-role="children" data-rid="${esc(r.id)}">
+                          <option value="0" selected>0</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select class="bk-config-select" data-role="extra" data-rid="${esc(r.id)}">
+                          <option value="0" selected>0</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                        </select>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
           </div>
@@ -347,6 +360,135 @@
           renderSidebar();
         }
       });
+    });
+  }
+
+  // ── Filter & Sort Logic ───────────────────────────────────────────────────────
+  function applyFilterAndSort() {
+    let filtered = [...allRooms];
+
+    // Filter
+    if (activeFilter === "cabin") {
+      filtered = filtered.filter(r => {
+        const text = `${r.name} ${r.description || ""}`.toLowerCase();
+        return text.includes("cabin") || text.includes("wooden") || text.includes("house");
+      });
+    } else if (activeFilter === "mountain") {
+      filtered = filtered.filter(r => {
+        const text = `${r.name} ${r.description || ""}`.toLowerCase();
+        return text.includes("mountain") || text.includes("view") || text.includes("afram") || text.includes("superior");
+      });
+    } else if (activeFilter === "family") {
+      filtered = filtered.filter(r => {
+        const text = `${r.name} ${r.description || ""}`.toLowerCase();
+        return text.includes("family") || text.includes("bedroom") || text.includes("two") || text.includes("dlx");
+      });
+    }
+
+    // Sort
+    if (activeSort === "price-asc") {
+      filtered.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+    } else if (activeSort === "price-desc") {
+      filtered.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
+    } else if (activeSort === "name-asc") {
+      filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    }
+
+    rooms = filtered;
+
+    const countEl = $("bkResultsCount");
+    if (countEl) {
+      countEl.textContent = `${rooms.length} ${rooms.length === 1 ? 'Room' : 'Rooms'}`;
+    }
+
+    renderRooms();
+  }
+
+  function initFilterAndSortControls() {
+    const pills = document.querySelectorAll("#bkFilterPills .bk-pill");
+    pills.forEach(p => {
+      if (p.dataset.filter === activeFilter) {
+        pills.forEach(x => x.classList.remove("active"));
+        p.classList.add("active");
+      }
+      p.addEventListener("click", () => {
+        pills.forEach(x => x.classList.remove("active"));
+        p.classList.add("active");
+        activeFilter = p.dataset.filter || "all";
+        applyFilterAndSort();
+      });
+    });
+
+    const sortSel = $("bkSortSelect");
+    if (sortSel) {
+      sortSel.value = activeSort;
+      sortSel.addEventListener("change", () => {
+        activeSort = sortSel.value;
+        applyFilterAndSort();
+      });
+    }
+  }
+
+  function showAvailAlert(type, htmlMsg) {
+    const alertBox = $("bkAvailAlert");
+    const msgEl = $("bkAvailAlertMsg");
+    const iconEl = $("bkAvailAlertIcon");
+    if (!alertBox || !msgEl) return;
+
+    alertBox.className = `bk-avail-alert ${type}`;
+    if (iconEl) iconEl.textContent = type === "success" ? "✓" : "!";
+    msgEl.innerHTML = htmlMsg;
+    alertBox.style.display = "block";
+  }
+
+  // ── Availability Check Button Handler ─────────────────────────────────────────
+  const checkBtn = $("checkAvailBtn");
+  if (checkBtn) {
+    checkBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const sVal = ci ? ci.value : "";
+      const eVal = co ? co.value : "";
+
+      if (!sVal || !eVal) {
+        showAvailAlert("error", "Please select both check-in and check-out dates.");
+        return;
+      }
+
+      const s = new Date(sVal + "T00:00:00");
+      const end = new Date(eVal + "T00:00:00");
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      if (s < now) {
+        showAvailAlert("error", "Check-in date cannot be in the past.");
+        return;
+      }
+
+      if (end <= s) {
+        showAvailAlert("error", "Check-out date must be at least one day after check-in date.");
+        return;
+      }
+
+      const n = nights();
+      const cinDisplay = sVal.split("-").reverse().join("-");
+      const coutDisplay = eVal.split("-").reverse().join("-");
+      const guestRooms = Number(rc ? rc.value : 1) || 1;
+
+      if (cart) {
+        renderSidebar();
+      }
+
+      applyFilterAndSort();
+
+      showAvailAlert(
+        "success",
+        `✓ <strong>${rooms.length} Room types available</strong> for <strong>${n} Night(s)</strong> (${cinDisplay} to ${coutDisplay}) &middot; ${guestRooms} Room(s)`
+      );
+
+      const mainCol = document.querySelector(".bk-main-col");
+      if (mainCol) {
+        mainCol.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     });
   }
 
@@ -576,8 +718,26 @@
   (async function init() {
     const list = $("bkRoomList");
     try {
-      rooms = await fetchRooms();
-      renderRooms();
+      allRooms = await fetchRooms();
+      initFilterAndSortControls();
+      applyFilterAndSort();
+
+      // If URL has a specific room preselected, scroll smoothly to it
+      const paramRoom = urlParams.get("room");
+      if (paramRoom) {
+        setTimeout(() => {
+          const cards = document.querySelectorAll(".bk-room-card");
+          const targetCard = [...cards].find(c => {
+            const heading = c.querySelector(".bk-room-title h3");
+            return heading && heading.textContent.toLowerCase().includes(paramRoom.toLowerCase());
+          });
+          if (targetCard) {
+            targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
+            targetCard.style.outline = "2px solid #b45f3c";
+            targetCard.style.boxShadow = "0 0 20px rgba(180, 95, 60, 0.4)";
+          }
+        }, 350);
+      }
     } catch (err) {
       if (list) list.innerHTML = `<p class="bk-loading" style="color:red;">Could not load rooms: ${esc(err.message)}</p>`;
     }

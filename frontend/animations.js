@@ -1,10 +1,9 @@
 /**
  * animations.js
  * 
- * Global scroll animation engine using IntersectionObserver.
- * Elements with the [data-reveal] attribute will receive the .is-visible class
- * when they enter the viewport, triggering their CSS entrance animations.
- * When scrolling out of view, the class is removed to allow re-animation on scroll (up and down).
+ * High-performance scroll animation engine using IntersectionObserver.
+ * Elements with [data-reveal] receive the .is-visible class once when entering viewport.
+ * Unobserves immediately upon reveal to prevent layout thrashing and scroll lag.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -15,24 +14,23 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  const DELAYS = { "0": 0, "1": 120, "2": 240, "3": 360, "4": 480, "5": 600 };
+  const DELAYS = { "0": 0, "1": 100, "2": 200, "3": 300, "4": 400, "5": 500 };
 
   const revealObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
-      const d = entry.target.dataset.delay || "0";
-      const ms = DELAYS[d] ?? 0;
-      
       if (entry.isIntersecting) {
-        setTimeout(() => entry.target.classList.add("is-visible"), ms);
-      } else {
-        // Remove class when out of view to allow animation to trigger again on scroll up/down
-        entry.target.classList.remove('is-visible');
+        const d = entry.target.dataset.delay || "0";
+        const ms = DELAYS[d] ?? 0;
+        setTimeout(() => {
+          entry.target.classList.add("is-visible");
+        }, ms);
+        revealObserver.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.12 });
+  }, { threshold: 0.08, rootMargin: "0px 0px 50px 0px" });
 
   window.initScrollAnimations = () => {
-    document.querySelectorAll('[data-reveal]').forEach(el => revealObserver.observe(el));
+    document.querySelectorAll('[data-reveal]:not(.is-visible)').forEach(el => revealObserver.observe(el));
   };
 
   window.initScrollAnimations();

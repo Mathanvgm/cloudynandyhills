@@ -85,6 +85,114 @@ const buildBookingUrl = (params = {}) => {
   return SKYROOMS_BOOKING_URL;
 };
 
+let allLoadedProperties = [];
+let activeRoomFilter = "all";
+let activeRoomSort = "featured";
+
+const applyRoomFiltersAndSort = () => {
+  if (!allLoadedProperties.length) return;
+
+  let filtered = [...allLoadedProperties];
+
+  // 1. Filter by category
+  if (activeRoomFilter === "cabin") {
+    filtered = filtered.filter(p => {
+      const text = `${p.name} ${p.description || ""}`.toLowerCase();
+      return text.includes("cabin") || text.includes("wooden") || text.includes("house");
+    });
+  } else if (activeRoomFilter === "mountain") {
+    filtered = filtered.filter(p => {
+      const text = `${p.name} ${p.description || ""}`.toLowerCase();
+      return text.includes("mountain") || text.includes("view") || text.includes("afram") || text.includes("superior");
+    });
+  } else if (activeRoomFilter === "family") {
+    filtered = filtered.filter(p => {
+      const text = `${p.name} ${p.description || ""}`.toLowerCase();
+      return text.includes("family") || text.includes("bedroom") || text.includes("two") || text.includes("dlx");
+    });
+  }
+
+  // 2. Sort
+  if (activeRoomSort === "price-asc") {
+    filtered.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+  } else if (activeRoomSort === "price-desc") {
+    filtered.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
+  } else if (activeRoomSort === "name-asc") {
+    filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  }
+
+  // Update count badge
+  const countBadge = document.querySelector("#roomCountBadge");
+  if (countBadge) {
+    countBadge.textContent = `${filtered.length} ${filtered.length === 1 ? 'Stay' : 'Stays'}`;
+  }
+
+  // Render cards
+  if (!filtered.length) {
+    roomGrid.innerHTML = '<p class="empty-list" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">No stays found matching this category. Please select "All Rooms".</p>';
+    return;
+  }
+
+  roomGrid.innerHTML = filtered
+    .map(
+      (property, i) => `
+        <article class="room-card" data-room-card data-room="${escapeHtml(property.name)}" data-reveal data-delay="${Math.min(i, 5)}">
+          <a href="#" class="lightbox-trigger" data-images="${escapeHtml(JSON.stringify(property.image_urls || [property.image]))}" data-index="0">
+            <img src="${property.image}" alt="${escapeHtml(property.name)}" loading="lazy" />
+          </a>
+          <div class="room-body">
+            <div>
+              <a href="./property.html?id=${property.id}">
+                <h3>${escapeHtml(property.name)}</h3>
+              </a>
+              <p class="room-card-desc">${escapeHtml(truncateText(property.description, 100))}</p>
+              <div class="booking-card-thumbs" style="margin-top: 12px;">
+                ${(property.image_urls || [property.image]).slice(0, 3).map((url, idx) => `
+                  <a href="#" class="lightbox-trigger" data-images="${escapeHtml(JSON.stringify(property.image_urls || [property.image]))}" data-index="${idx}">
+                    <img src="${url}" alt="Room preview" loading="lazy" />
+                  </a>
+                `).join('')}
+                ${(property.image_urls || []).length > 3 ? `<span class="more-thumbs">+${property.image_urls.length - 3}</span>` : ''}
+              </div>
+            </div>
+            <div class="room-meta">
+              <span>${formatRupees(property.price)}/night</span>
+              <div class="room-card-actions">
+                <a class="text-button" href="./property.html?id=${property.id}">Details</a>
+                <button class="text-button" type="button" data-room-select="${escapeHtml(property.name)}" data-room-id="${property.id}">
+                  Book
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+
+  if (window.initScrollAnimations) window.initScrollAnimations();
+};
+
+const initRoomControls = () => {
+  const filterBtns = document.querySelectorAll("#indexRoomFilters .room-filter-btn");
+  filterBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      filterBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeRoomFilter = btn.dataset.filter || "all";
+      applyRoomFiltersAndSort();
+    });
+  });
+
+  const sortSelect = document.querySelector("#indexRoomSort");
+  if (sortSelect) {
+    sortSelect.addEventListener("change", () => {
+      activeRoomSort = sortSelect.value;
+      applyRoomFiltersAndSort();
+    });
+  }
+};
+
 const renderPublicUploadedProperties = async () => {
   roomGrid.innerHTML = '<p class="empty-list">Loading properties from Supabase...</p>';
 
@@ -94,49 +202,14 @@ const renderPublicUploadedProperties = async () => {
     if (!properties.length) {
       roomGrid.innerHTML =
         '<p class="empty-list">No properties found in Supabase. Add one from the admin panel.</p>';
+      const countBadge = document.querySelector("#roomCountBadge");
+      if (countBadge) countBadge.textContent = "0 Stays";
       return;
     }
 
-    roomGrid.innerHTML = properties
-      .map(
-        (property, i) => `
-          <article class="room-card" data-room-card data-room="${escapeHtml(property.name)}" data-reveal data-delay="${Math.min(i, 5)}">
-            <a href="#" class="lightbox-trigger" data-images="${escapeHtml(JSON.stringify(property.image_urls || [property.image]))}" data-index="0">
-              <img src="${property.image}" alt="${escapeHtml(property.name)}" />
-            </a>
-            <div class="room-body">
-              <div>
-                <a href="./property.html?id=${property.id}">
-                  <h3>${escapeHtml(property.name)}</h3>
-                </a>
-                <p class="room-card-desc">${escapeHtml(truncateText(property.description, 100))}</p>
-                <div class="booking-card-thumbs" style="margin-top: 12px;">
-                  ${(property.image_urls || [property.image]).slice(0, 3).map((url, idx) => `
-                    <a href="#" class="lightbox-trigger" data-images="${escapeHtml(JSON.stringify(property.image_urls || [property.image]))}" data-index="${idx}">
-                      <img src="${url}" alt="Room preview" />
-                    </a>
-                  `).join('')}
-                  ${(property.image_urls || []).length > 3 ? `<span class="more-thumbs">+${property.image_urls.length - 3}</span>` : ''}
-                </div>
-              </div>
-              <div class="room-meta">
-                <span>${formatRupees(property.price)}/night</span>
-                <div class="room-card-actions">
-                  <a class="text-button" href="./property.html?id=${property.id}">Details</a>
-                  <button class="text-button" type="button" data-room-select="${escapeHtml(
-          property.name,
-        )}">
-                    Book
-                  </button>
-                </div>
-              </div>
-            </div>
-          </article>
-        `,
-      )
-      .join("");
-
-    if (window.initScrollAnimations) window.initScrollAnimations();
+    allLoadedProperties = properties;
+    initRoomControls();
+    applyRoomFiltersAndSort();
   } catch (error) {
     roomGrid.innerHTML = `<p class="empty-list">Unable to load Supabase properties. ${escapeHtml(
       error.message,
@@ -267,43 +340,59 @@ quickCheckIn.addEventListener("change", () => {
 
 quickBookingForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  window.location.href = SKYROOMS_BOOKING_URL;
+  const params = new URLSearchParams({
+    checkIn: quickCheckIn.value,
+    checkOut: quickCheckOut.value,
+    guests: quickGuests.value
+  });
+  window.location.href = `${SKYROOMS_BOOKING_URL}?${params.toString()}`;
 });
 
 roomGrid.addEventListener("click", (event) => {
   const button = event.target.closest("[data-room-select]");
-
   if (button) {
-    window.location.href = SKYROOMS_BOOKING_URL;
+    const roomName = button.getAttribute("data-room-select") || "";
+    const params = new URLSearchParams({
+      checkIn: quickCheckIn.value,
+      checkOut: quickCheckOut.value,
+      guests: quickGuests.value,
+      room: roomName
+    });
+    window.location.href = `${SKYROOMS_BOOKING_URL}?${params.toString()}`;
   }
 });
 
 renderPublicUploadedProperties();
 loadKodaikanalWeather();
 
-// ── Header scroll: hide on scroll-down, show on scroll-up ──
+// ── Header scroll: hide on scroll-down, show on scroll-up (throttled with rAF) ──
 const header = document.getElementById("siteHeader");
 let lastScrollY = window.scrollY;
 const scrollThreshold = 5; // ignore tiny scroll movements
+let scrollTicking = false;
 
 window.addEventListener("scroll", () => {
-  const currentScrollY = window.scrollY;
+  if (!scrollTicking) {
+    window.requestAnimationFrame(() => {
+      const currentScrollY = window.scrollY;
+      if (header) {
+        // Add/remove the "scrolled" shrink class
+        header.classList.toggle("scrolled", currentScrollY > 60);
 
-  // Add/remove the "scrolled" shrink class
-  header.classList.toggle("scrolled", currentScrollY > 60);
-
-  // Determine scroll direction and hide/show
-  if (Math.abs(currentScrollY - lastScrollY) < scrollThreshold) return;
-
-  if (currentScrollY > lastScrollY && currentScrollY > 80) {
-    // Scrolling DOWN — hide the header
-    header.classList.add("header-hidden");
-  } else {
-    // Scrolling UP — show the header
-    header.classList.remove("header-hidden");
+        // Determine scroll direction and hide/show
+        if (Math.abs(currentScrollY - lastScrollY) >= scrollThreshold) {
+          if (currentScrollY > lastScrollY && currentScrollY > 80) {
+            header.classList.add("header-hidden");
+          } else {
+            header.classList.remove("header-hidden");
+          }
+          lastScrollY = currentScrollY;
+        }
+      }
+      scrollTicking = false;
+    });
+    scrollTicking = true;
   }
-
-  lastScrollY = currentScrollY;
 }, { passive: true });
 
 // ── Room card stagger reveal (called after cards render) ──
@@ -332,4 +421,39 @@ const roomGridEl = document.getElementById("roomGrid");
 if (roomGridEl) {
   new MutationObserver(() => initRoomCardReveal())
     .observe(roomGridEl, { childList: true });
+}
+
+// ── Mobile Navigation Toggle ──
+const siteHeader = document.getElementById("siteHeader");
+const navToggle = document.getElementById("navToggle");
+
+if (navToggle && siteHeader) {
+  navToggle.addEventListener("click", () => {
+    const isOpen = siteHeader.classList.toggle("nav-open");
+    navToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  // Close when clicking nav links
+  siteHeader.querySelectorAll(".nav a").forEach((link) => {
+    link.addEventListener("click", () => {
+      siteHeader.classList.remove("nav-open");
+      navToggle.setAttribute("aria-expanded", "false");
+    });
+  });
+
+  // Close when clicking outside header
+  document.addEventListener("click", (e) => {
+    if (!siteHeader.contains(e.target) && siteHeader.classList.contains("nav-open")) {
+      siteHeader.classList.remove("nav-open");
+      navToggle.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  // Close on Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && siteHeader.classList.contains("nav-open")) {
+      siteHeader.classList.remove("nav-open");
+      navToggle.setAttribute("aria-expanded", "false");
+    }
+  });
 }
