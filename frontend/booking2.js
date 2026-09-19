@@ -761,7 +761,12 @@
   (async function init() {
     const list = $("bkRoomList");
     try {
-      allRooms = await fetchRooms();
+      // Fetch rooms and confirmed bookings in parallel
+      const [fetchedRooms] = await Promise.all([
+        fetchRooms(),
+        fetchConfirmedBookings(),
+      ]);
+      allRooms = fetchedRooms;
       initFilterAndSortControls();
       applyFilterAndSort();
 
