@@ -186,8 +186,7 @@ const applyRoomFiltersAndSort = () => {
               <div class="room-card-actions">
                 <a class="text-button" href="./property.html?id=${property.id}">Details</a>
                 ${isRoomBlockedForDates(property.name, quickCheckIn ? quickCheckIn.value : '', quickCheckOut ? quickCheckOut.value : '')
-                  ? `<span class="booked-badge" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:999px;font-size:0.78rem;font-weight:700;cursor:default;">
-                       <svg width="11" height="11" viewBox="0 0 24 24" fill="#b91c1c"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15" stroke="#fff" stroke-width="2"/><line x1="9" y1="9" x2="15" y2="15" stroke="#fff" stroke-width="2"/></svg>
+                  ? `<span class="text-button" style="opacity:0.7;cursor:not-allowed;pointer-events:none;">
                        Booked
                      </span>`
                   : `<button class="text-button" type="button" data-room-select="${escapeHtml(property.name)}" data-room-id="${property.id}">
