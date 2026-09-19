@@ -9,7 +9,237 @@
       content="Cloud Nandy admin panel for uploading hotel properties, prices, descriptions, and images."
     />
     <link rel="stylesheet" href="./styles.css?v=200" />
-  </head>
+    <style>
+      /* ── Modern Bookings Layout ──────────────────────────────────── */
+      .bk-section-shell {
+        width: 100%;
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 24px clamp(16px, 3vw, 36px) 60px;
+        box-sizing: border-box;
+      }
+
+      .bk-top-bar {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+      }
+
+      .bk-title-group .bk-eyebrow {
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        color: #b45f3c;
+        display: block;
+        margin-bottom: 3px;
+      }
+
+      .bk-title-group h2 {
+        margin: 0;
+        font-size: clamp(1.4rem, 2.5vw, 1.85rem);
+        font-weight: 800;
+        color: #17211d;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        letter-spacing: -0.02em;
+      }
+
+      .bk-count-badge {
+        background: #b45f3c;
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: 800;
+        border-radius: 999px;
+        padding: 2px 10px;
+        line-height: 1.4;
+      }
+
+      .bk-controls-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .bk-search-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .bk-search-wrap svg {
+        position: absolute;
+        left: 12px;
+        color: #94a3b8;
+        pointer-events: none;
+      }
+
+      .bk-search-wrap input {
+        padding: 9px 14px 9px 34px;
+        border: 1px solid #dde3ea;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        width: clamp(180px, 25vw, 260px);
+        outline: none;
+        font-family: inherit;
+        background: #ffffff;
+        color: #17211d;
+        box-sizing: border-box;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+
+      .bk-search-wrap input:focus {
+        border-color: #b45f3c;
+        box-shadow: 0 0 0 3px rgba(180, 95, 60, 0.12);
+      }
+
+      .bk-refresh-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 18px;
+        background: #b45f3c;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+        white-space: nowrap;
+        transition: background 0.15s, transform 0.15s;
+      }
+
+      .bk-refresh-button:hover {
+        background: #9a4f32;
+        transform: translateY(-1px);
+      }
+
+      /* Status tabs (segmented control) */
+      .bk-tabs-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+
+      .status-chip {
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        color: #475569;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+      }
+
+      .status-chip:hover {
+        border-color: #cbd5e1;
+        background: #f8fafc;
+      }
+
+      .status-chip.active {
+        background: #17211d !important;
+        color: #ffffff !important;
+        border-color: #17211d !important;
+      }
+
+      .status-chip .chip-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .dot-pending   { background: #f59e0b; }
+      .dot-confirmed { background: #10b981; }
+      .dot-cancelled { background: #ef4444; }
+      .dot-completed { background: #0284c7; }
+
+      .status-chip .chip-count {
+        background: #f1f5f9;
+        color: #475569;
+        padding: 1px 7px;
+        border-radius: 10px;
+        font-size: 0.72rem;
+        font-weight: 800;
+      }
+
+      .status-chip.active .chip-count {
+        background: rgba(255,255,255,0.25);
+        color: #ffffff;
+      }
+
+      /* Table card */
+      .bk-table-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05), 0 2px 6px -1px rgba(0,0,0,0.02);
+      }
+
+      .bk-table-scroll {
+        width: 100%;
+        overflow-x: auto;
+      }
+
+      .bk-table {
+        width: 100%;
+        min-width: 860px;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+        font-family: inherit;
+        text-align: left;
+      }
+
+      .bk-table thead tr {
+        background: #f8fafc;
+        border-bottom: 2px solid #e2e8f0;
+      }
+
+      .bk-table th {
+        padding: 14px 16px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+        white-space: nowrap;
+      }
+
+      .bk-table tbody tr {
+        border-bottom: 1px solid #f1f5f9;
+        transition: background 0.12s ease;
+      }
+
+      .bk-table tbody tr:last-child {
+        border-bottom: none;
+      }
+
+      .bk-table tbody tr:hover {
+        background: #f8fafc !important;
+      }
+
+      .bk-loading-cell {
+        text-align: center;
+        padding: 50px 20px;
+        color: #94a3b8;
+        font-style: italic;
+      }
+    </style>
   <body class="admin-page">
     <main class="admin-shell">
       <section id="loginPanel" class="login-panel">
@@ -183,55 +413,79 @@
         </section>
 
         <!-- ── BOOKINGS TAB ─────────────────────────────────────── -->
-        <section id="bookingTab" hidden style="width:100%;padding:20px clamp(14px, 3vw, 32px) 60px;box-sizing:border-box;">
+        <section id="bookingTab" class="bk-section-shell" hidden>
 
-          <!-- Toolbar -->
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:20px;">
-            <div>
-              <p style="margin:0;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#b45f3c;">RESERVATIONS</p>
-              <h2 style="margin:4px 0 0;font-size:clamp(1.4rem, 3vw, 1.8rem);font-weight:800;color:#17211d;display:flex;align-items:center;gap:10px;">
+          <!-- Top Toolbar -->
+          <div class="bk-top-bar">
+            <div class="bk-title-group">
+              <span class="bk-eyebrow">RESERVATIONS</span>
+              <h2>
                 All Bookings
-                <span id="bookingsCount" style="background:#b45f3c;color:#fff;font-size:0.82rem;font-weight:800;border-radius:999px;padding:2px 12px;">0</span>
+                <span id="bookingsCount" class="bk-count-badge">0</span>
               </h2>
             </div>
-            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;width:auto;">
-              <input id="bookingsSearch" type="search" placeholder="Search name, email, phone…"
-                style="padding:9px 14px;border:1px solid #dde3ea;border-radius:8px;font-size:0.88rem;width:clamp(150px, 40vw, 220px);outline:none;font-family:inherit;background:#fff;color:#17211d;box-sizing:border-box;" />
-              <select id="bookingsStatusFilter"
-                style="padding:9px 14px;border:1px solid #dde3ea;border-radius:8px;font-size:0.88rem;background:#fff;color:#17211d;outline:none;cursor:pointer;font-family:inherit;box-sizing:border-box;">
+            <div class="bk-controls-group">
+              <div class="bk-search-wrap">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input id="bookingsSearch" type="search" placeholder="Search name, phone, room…" />
+              </div>
+              <select id="bookingsStatusFilter" style="display:none;" aria-label="Status filter">
                 <option value="">All Status</option>
-                <option value="pending">Pending</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="cancelled">Cancelled</option>
-                <option value="failed">Failed</option>
                 <option value="completed">Completed</option>
               </select>
-              <button id="refreshBookings" class="button primary" type="button" style="white-space:nowrap;padding:9px 16px;">↻ Refresh</button>
+              <button id="refreshBookings" class="bk-refresh-button" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+                <span>Refresh</span>
+              </button>
             </div>
+          </div>
+
+          <!-- Status Filter Tabs (Segmented Pills) -->
+          <div id="bookingStatusTabs" class="bk-tabs-row">
+            <button type="button" class="status-chip active" data-status="">
+              All <span class="chip-count" id="countAll">0</span>
+            </button>
+            <button type="button" class="status-chip" data-status="confirmed">
+              <span class="chip-dot dot-confirmed"></span>Confirmed <span class="chip-count" id="countConfirmed">0</span>
+            </button>
+            <button type="button" class="status-chip" data-status="cancelled">
+              <span class="chip-dot dot-cancelled"></span>Cancelled <span class="chip-count" id="countCancelled">0</span>
+            </button>
+            <button type="button" class="status-chip" data-status="completed">
+              <span class="chip-dot dot-completed"></span>Completed <span class="chip-count" id="countCompleted">0</span>
+            </button>
           </div>
 
           <p id="bookingsMessage" class="bookings-msg" hidden></p>
 
-          <!-- Table -->
-          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow-x:auto;box-shadow:0 2px 16px rgba(0,0,0,0.06);width:100%;">
-            <table style="width:100%;min-width:900px;border-collapse:collapse;font-size:0.875rem;font-family:inherit;table-layout:auto;">
-              <thead>
-                <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
-                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Name</th>
-                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Phone</th>
-                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Email</th>
-                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Room</th>
-                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Check-In → Out</th>
-                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Amount</th>
-                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Booked At</th>
-                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Status</th>
-                  <th style="padding:13px 16px;text-align:left;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="bookingsTbody">
-                <tr><td colspan="9" style="text-align:center;padding:44px;color:#94a3b8;font-style:italic;">Loading bookings…</td></tr>
-              </tbody>
-            </table>
+          <!-- Table Card -->
+          <div class="bk-table-card">
+            <div class="bk-table-scroll">
+              <table class="bk-table">
+                <thead>
+                  <tr>
+                    <th>Guest Name</th>
+                    <th>Status</th>
+                    <th>Room</th>
+                    <th>Check-In / Out</th>
+                    <th>Amount</th>
+                    <th>Phone</th>
+                    <th>Booked At</th>
+                    <th style="text-align:center;width:70px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="bookingsTbody">
+                  <tr><td colspan="8" class="bk-loading-cell">Loading bookings…</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
         </section>
@@ -278,7 +532,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./supabase-config.js?v=12"></script>
     <script src="./admin.js?v=12"></script>
-    <script src="./admin-bookings.js?v=1"></script>
+    <script src="./admin-bookings.js?v=9"></script>
     <script src="./animations.js?v=12"></script>
     <script>
       // ── Tab switching ─────────────────────────────────────────

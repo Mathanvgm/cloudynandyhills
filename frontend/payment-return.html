@@ -101,6 +101,7 @@
     <div class="pr-card" id="prCard">
       <div class="pr-loading"><div class="pr-spinner"></div>Processing your payment status&hellip;</div>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
     (function () {
       const card     = document.getElementById('prCard');
@@ -116,14 +117,15 @@
       })();
 
       const fmt = v => v ? '\u20b9' + Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '\u2014';
-      const shortId = orderId ? '#CNH-' + orderId.replace(/-/g,'').substring(0,8).toUpperCase() : '\u2014';
+      const shortId = orderId ? orderId : '\u2014';
+      const shortRef = orderId ? '#CNH-' + orderId.replace(/-/g,'').substring(0,8).toUpperCase() : '\u2014';
 
       const states = {
-        success:   { icon:'\u2713', cls:'success',  title:'Booking Confirmed!',      subtitle:'Your payment was successful and your booking is confirmed. Our team will contact you with arrival details.', statusVal:'SUCCESS',   statusCls:'green' },
-        confirmed: { icon:'\u2713', cls:'success',  title:'Booking Confirmed!',      subtitle:'Your payment was successful. We look forward to hosting you!', statusVal:'SUCCESS', statusCls:'green' },
-        cancelled: { icon:'\u2715', cls:'cancelled',title:'Payment Cancelled',       subtitle:'You cancelled the payment. Your booking has not been confirmed. You can try again anytime.', statusVal:'CANCELLED', statusCls:'orange' },
-        failed:    { icon:'\u2715', cls:'failed',   title:'Payment Failed',          subtitle:'Your payment could not be processed. Please try again or contact us directly.', statusVal:'FAILED',    statusCls:'red' },
-        error:     { icon:'!',     cls:'error',    title:'Something Went Wrong',    subtitle:'We could not verify your payment. Please contact us with your booking reference.', statusVal:'UNKNOWN',   statusCls:'' },
+        success:   { icon:'\u2713', cls:'success',  title:'Booking Confirmed!',      subtitle:'Your payment was successful and your room is confirmed. Our team will contact you with arrival details.' },
+        confirmed: { icon:'\u2713', cls:'success',  title:'Booking Confirmed!',      subtitle:'Your payment was successful. We look forward to hosting you!' },
+        cancelled: { icon:'\u2715', cls:'cancelled',title:'Payment Cancelled',       subtitle:'You cancelled the payment. Your booking has not been confirmed. You can try again anytime.' },
+        failed:    { icon:'\u2715', cls:'failed',   title:'Payment Failed',          subtitle:'Your payment could not be processed. Please try again or contact us directly.' },
+        error:     { icon:'!',     cls:'error',    title:'Something Went Wrong',    subtitle:'We could not verify your payment. Please contact us with your booking reference.' },
       };
 
       const cfg = states[status] || states.error;
@@ -137,8 +139,8 @@
         </div>` : '';
 
       const detailRows = [
-        { label:'Booking Reference', value: shortId },
-        { label:'Payment Status',    value: cfg.statusVal, cls: cfg.statusCls },
+        { label:'Booking Reference', value: shortRef },
+        { label:'Payment Status',    value: isSuccess ? 'CONFIRMED' : (status.toUpperCase()), cls: isSuccess ? 'green' : 'red' },
         amount   ? { label:'Amount Paid',  value: fmt(amount) } : null,
         tracking ? { label:'Tracking ID',  value: tracking }    : null,
         saved.room      ? { label:'Room',  value: saved.room }  : null,
@@ -154,6 +156,13 @@
           <span class="pr-detail-value ${r.cls || ''}">${r.value}</span>
         </div>`).join('');
 
+      const pdfBtnHtml = isSuccess
+        ? `<button id="prDownloadPdf" class="pr-btn pr-btn-primary">
+             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+             Download PDF
+           </button>`
+        : '';
+
       card.innerHTML = `
         <div class="pr-icon-wrap">
           <div class="pr-circle ${cfg.cls}">${cfg.icon}</div>
@@ -168,13 +177,127 @@
             : 'Need help? Call us or email <strong>stay@cloudnandyhills.com</strong> and we will sort it out.'}
         </div>
         <div class="pr-actions">
+          ${pdfBtnHtml}
           ${isSuccess
-            ? '<a href="./index.html" class="pr-btn pr-btn-secondary">&#127968; Back to Home</a><a href="./booking.html" class="pr-btn pr-btn-primary">&#128197; Book Another</a>'
+            ? '<a href="./index.html" class="pr-btn pr-btn-secondary">&#127968; Back to Home</a>'
             : '<a href="./booking.html" class="pr-btn pr-btn-primary">&#8617; Try Again</a><a href="./index.html" class="pr-btn pr-btn-secondary">&#127968; Back to Home</a>'}
         </div>`;
 
       if (isSuccess) localStorage.removeItem('cloudNandyLatestBooking');
+
+      // ── PDF Download ─────────────────────────────────────────────────────────
+      const pdfBtn = document.getElementById('prDownloadPdf');
+      if (pdfBtn) {
+        pdfBtn.addEventListener('click', function () {
+          if (!window.jspdf) {
+            alert('PDF library not loaded. Please refresh and try again.');
+            return;
+          }
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+          const W = doc.internal.pageSize.getWidth();
+          const margin = 48;
+          const contentW = W - margin * 2;
+          let y = margin;
+
+          // ── Header ──
+          doc.setFillColor(23, 33, 29);
+          doc.rect(0, 0, W, 64, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(20);
+          doc.setTextColor(255, 255, 255);
+          doc.text('Cloud Nandy Hills', margin, 38);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(180, 210, 195);
+          doc.text('Poombarai, Kodaikanal \u2014 Booking Confirmation', margin, 52);
+
+          // ── Booking Ref + Tracking top-right ──
+          doc.setFontSize(8);
+          doc.setTextColor(180, 210, 195);
+          doc.text('Booking Ref', W - margin, 26, { align: 'right' });
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10);
+          doc.setTextColor(255, 255, 255);
+          doc.text(shortRef, W - margin, 40, { align: 'right' });
+          if (tracking) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(180, 210, 195);
+            doc.text('Track: ' + tracking, W - margin, 54, { align: 'right' });
+          }
+          y = 88;
+
+          // ── Confirmed Status Pill ──
+          doc.setFillColor(21, 128, 61);
+          doc.roundedRect(margin, y, 100, 22, 5, 5, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(255, 255, 255);
+          doc.text('CONFIRMED', margin + 50, y + 14.5, { align: 'center' });
+          y += 38;
+
+          // ── Section helper ──
+          const safe = v => String(v || '\u2014');
+          function sectionTitle(title) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(180, 95, 60);
+            doc.text(title.toUpperCase(), margin, y);
+            y += 4;
+            doc.setDrawColor(180, 95, 60);
+            doc.setLineWidth(0.5);
+            doc.line(margin, y, margin + contentW, y);
+            y += 14;
+          }
+          function row(label, value, shade) {
+            if (shade) {
+              doc.setFillColor(248, 250, 252);
+              doc.rect(margin, y - 11, contentW, 20, 'F');
+            }
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(100, 116, 139);
+            doc.text(label, margin + 6, y);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(30, 41, 59);
+            doc.text(safe(value), margin + contentW * 0.45, y);
+            y += 22;
+          }
+
+          // ── Guest Info ──
+          sectionTitle('Guest Information');
+          if (saved.name)  row('Full Name', saved.name, false);
+          if (saved.phone) row('Phone',     saved.phone, true);
+          if (saved.email) row('Email',     saved.email, false);
+          y += 10;
+
+          // ── Booking Info ──
+          sectionTitle('Booking Information');
+          if (saved.room)      row('Room / Property', saved.room, false);
+          if (saved.check_in)  row('Check-In',  saved.check_in.split('-').reverse().join(' '), true);
+          if (saved.check_out) row('Check-Out', saved.check_out.split('-').reverse().join(' '), false);
+          if (amount)          row('Amount Paid', fmt(amount), true);
+          row('Order ID', shortId, false);
+          y += 10;
+
+          // ── Footer ──
+          const pageH = doc.internal.pageSize.getHeight();
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.5);
+          doc.line(margin, pageH - 44, W - margin, pageH - 44);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(148, 163, 184);
+          doc.text('Thank you for choosing Cloud Nandy Hills. For queries: stay@cloudnandyhills.com', W / 2, pageH - 28, { align: 'center' });
+          doc.text('Check-in time: 1:00 PM  |  Check-out time: 11:00 AM', W / 2, pageH - 16, { align: 'center' });
+
+          doc.save('CloudNandy_Booking_' + shortRef.replace(/[^A-Z0-9]/g, '') + '.pdf');
+        });
+      }
+
     })();
     </script>
   </body>
 </html>
+

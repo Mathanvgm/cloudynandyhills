@@ -39,13 +39,19 @@
       const s = new Date(ci.value + "T00:00:00");
       co.min = toVal(addDay(s, 1));
       if (new Date(co.value + "T00:00:00") <= s) co.value = toVal(addDay(s, 1));
+      // Re-fetch confirmed bookings and re-render rooms when dates change
+      fetchConfirmedBookings().then(() => renderRooms());
       renderSidebar();
     });
   }
   if (co) {
     co.min = toVal(addDay(today, 2));
     co.value = urlParams.get("checkOut") || toVal(addDay(today, 2));
-    co.addEventListener("change", () => renderSidebar());
+    co.addEventListener("change", () => {
+      // Re-render rooms with updated blocking when checkout date changes
+      fetchConfirmedBookings().then(() => renderRooms());
+      renderSidebar();
+    });
   }
 
   const nights = () => {
@@ -66,6 +72,35 @@
   let cart = null;
   let activeFilter = urlParams.get("filter") || "all";
   let activeSort = "default";
+  let confirmedBookings = []; // [{room, check_in, check_out}] — from backend
+
+  const API_BASE = "https://cloudynandyhills.onrender.com";
+
+  // Fetch confirmed bookings from backend (no PII returned)
+  async function fetchConfirmedBookings() {
+    try {
+      const res = await fetch(API_BASE + "/api/bookings/confirmed");
+      if (!res.ok) return;
+      confirmedBookings = await res.json();
+    } catch (e) {
+      confirmedBookings = [];
+    }
+  }
+
+  // Returns true if the given room name has a confirmed booking
+  // that overlaps with the currently selected check-in/check-out dates
+  function isRoomBlocked(roomName) {
+    if (!ci || !co) return false;
+    const selIn  = new Date(ci.value  + "T00:00:00");
+    const selOut = new Date(co.value  + "T00:00:00");
+    return confirmedBookings.some(function (b) {
+      if ((b.room || "").trim().toLowerCase() !== (roomName || "").trim().toLowerCase()) return false;
+      const bIn  = new Date(b.check_in  + "T00:00:00");
+      const bOut = new Date(b.check_out + "T00:00:00");
+      // Overlap: bIn < selOut AND bOut > selIn
+      return bIn < selOut && bOut > selIn;
+    });
+  }
 
   // ── Sidebar ──────────────────────────────────────────────────────────────────
   function renderSidebar() {
@@ -187,7 +222,8 @@
     }
 
     list.innerHTML = rooms.map((r, i) => {
-      const inCart = cart && cart.id === r.id;
+      const inCart  = cart && cart.id === r.id;
+      const blocked = isRoomBlocked(r.name);
       const incRate = r.price;
       const excRate = incRate / 1.05;
       const extraChildInc = Math.round(incRate * 0.2);
@@ -195,7 +231,7 @@
 
       const imgs = r.images.length ? r.images : [""];
       const hasMulti = imgs.length > 1;
-      const roomsLeft = inCart ? 0 : 1;
+      const roomsLeft = (inCart || blocked) ? 0 : 1;
 
       const imgsJSON = esc(JSON.stringify(imgs));
       const imgSlides = imgs.map((url, idx) =>
@@ -208,7 +244,13 @@
         <button class="bk-slider-btn prev" data-sid="${i}" aria-label="Prev">&#10094;</button>
         <button class="bk-slider-btn next" data-sid="${i}" aria-label="Next">&#10095;</button>` : "";
 
-      const bookBtn = inCart
+      // Book button: blocked = "Booked" badge, inCart = "Added", else normal button
+      const bookBtn = blocked
+        ? `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:999px;font-size:0.78rem;font-weight:700;">
+             <svg width="12" height="12" viewBox="0 0 24 24" fill="#b91c1c"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15" stroke="#fff" stroke-width="2"/><line x1="9" y1="9" x2="15" y2="15" stroke="#fff" stroke-width="2"/></svg>
+             Booked
+           </span>`
+        : inCart
         ? `<span style="color:#b45f3c;font-weight:700;font-size:0.82rem;">Added</span>`
         : `<button class="bk-book-btn" data-rid="${esc(r.id)}">Book Room</button>`;
 
@@ -329,12 +371,13 @@
       });
     });
 
-    // Book Room buttons
+    // Book Room buttons — skip blocked rooms
     list.querySelectorAll(".bk-book-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const rid = btn.dataset.rid;
         const room = rooms.find(r => r.id === rid);
         if (!room) return;
+        if (isRoomBlocked(room.name)) return; // double-guard
         const cfg_tbl = document.getElementById("cfg-" + rid);
         cart = {
           id: rid,

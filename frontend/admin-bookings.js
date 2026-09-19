@@ -48,15 +48,34 @@
     return '<span class="status-pill ' + s.cls + '">' + s.label + '</span>';
   };
 
-  // ── Fetch ─────────────────────────────────────────────────────────────────
+  // ── Fetch — confirmed / cancelled / completed + stuck pending (>15 min) ──
   async function fetchBookings() {
     if (!db) { showMessage("Supabase not connected.", "error"); return []; }
-    const { data, error } = await db
+
+    // Fetch the main set: confirmed, cancelled, completed
+    const { data: mainData, error: mainErr } = await db
       .from("bookings")
       .select("*")
+      .in("status", ["confirmed", "cancelled", "completed"])
       .order("booked_at", { ascending: false });
-    if (error) throw new Error(error.message);
-    return data || [];
+    if (mainErr) throw new Error(mainErr.message);
+
+    // Also fetch "stuck" pending bookings (>15 min old — CCAvenue return likely failed)
+    // These appear with a yellow "Stuck" label so admin can manually confirm/cancel
+    const cutoffTime = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const { data: stuckData } = await db
+      .from("bookings")
+      .select("*")
+      .eq("status", "pending")
+      .lt("booked_at", cutoffTime)
+      .order("booked_at", { ascending: false });
+
+    // Tag stuck records so they render differently
+    const tagged = (stuckData || []).map(function (b) {
+      return Object.assign({}, b, { _stuck: true });
+    });
+
+    return [...(mainData || []), ...tagged];
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -65,7 +84,7 @@
 
     if (!bookings || bookings.length === 0) {
       bookingsTbody.innerHTML =
-        '<tr><td colspan="9" style="text-align:center;padding:56px 24px;">' +
+        '<tr><td colspan="8" style="text-align:center;padding:56px 24px;">' +
         '<div style="display:flex;flex-direction:column;align-items:center;gap:10px;color:#94a3b8;">' +
         '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3;">' +
         '<path d="M8 7V3m8 4V3M3 11h18M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>' +
@@ -85,8 +104,8 @@
 
     bookingsTbody.innerHTML = bookings.map(function (b) {
       const currentStatus = b.status || "pending";
-      const isPending     = currentStatus === "pending";
-      const bg            = isPending ? rowBgPending : rowBg;
+      const isStuck       = !!b._stuck; // pending > 15min — CCAvenue return likely failed
+      const bg            = isStuck ? "#fffbeb" : (currentStatus === "pending" ? "#fffbf5" : "#ffffff");
 
       // Avatar initials
       const initials = (b.name || "?")
@@ -104,95 +123,232 @@
         return new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
       };
 
-      // Status badge
+      // Status badge — stuck records show ⚠ Payment Pending in amber
       const badgeMap = {
-        confirmed: { label: "Confirmed",  bg: "#dcfce7", color: "#15803d" },
-        pending:   { label: "Pending",    bg: "#fff7ed", color: "#c2410c" },
-        cancelled: { label: "Cancelled",  bg: "#fee2e2", color: "#b91c1c" },
-        failed:    { label: "Failed",     bg: "#fee2e2", color: "#b91c1c" },
-        completed: { label: "Completed",  bg: "#f0f9ff", color: "#0369a1" },
+        confirmed: { label: "Confirmed",  bg: "#ecfdf5", color: "#047857", border: "#a7f3d0" },
+        pending:   { label: "Pending",    bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+        cancelled: { label: "Cancelled",  bg: "#fef2f2", color: "#b91c1c", border: "#fecaca" },
+        failed:    { label: "Failed",     bg: "#fef2f2", color: "#991b1b", border: "#fecdd3" },
+        completed: { label: "Completed",  bg: "#f0f9ff", color: "#0284c7", border: "#bae6fd" },
       };
-      const badge = badgeMap[currentStatus] || badgeMap.pending;
+      const badge = isStuck
+        ? { label: "⚠ Payment Issue", bg: "#fef9c3", color: "#854d0e", border: "#fef08a" }
+        : (badgeMap[currentStatus] || badgeMap.pending);
       const badgeHtml =
-        '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:0.72rem;font-weight:700;background:' + badge.bg + ';color:' + badge.color + ';white-space:nowrap;">' +
-        '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;display:inline-block;"></span>' +
+        '<span style="display:inline-flex;align-items:center;justify-content:center;padding:4px 10px;border-radius:999px;font-size:0.72rem;font-weight:700;background:' + badge.bg + ';color:' + badge.color + ';border:1px solid ' + badge.border + ';white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,0.03);">' +
         badge.label + '</span>';
 
-      // Action buttons
-      const viewBtn =
-        '<button class="bk-view-btn" data-id="' + esc(b.id) + '"' +
-        ' style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;background:#f1f5f9;color:#17211d;border:1px solid #e2e8f0;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">' +
-        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' +
-        'View</button>';
 
-      let actionHtml = "";
-      if (isPending) {
-        actionHtml =
-          viewBtn +
-          '<button class="bk-accept-btn" data-id="' + esc(b.id) + '" data-status="confirmed"' +
-          ' style="display:inline-flex;align-items:center;padding:7px 14px;background:#10b981;color:#fff;border:none;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:inherit;margin-right:6px;white-space:nowrap;">✓ Confirm</button>' +
-          '<button class="bk-reject-btn" data-id="' + esc(b.id) + '" data-status="cancelled"' +
-          ' style="display:inline-flex;align-items:center;padding:7px 14px;background:#fff;color:#ef4444;border:1px solid #fca5a5;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">✕ Reject</button>';
-      } else if (currentStatus === "confirmed") {
-        actionHtml = viewBtn + '<span style="font-size:0.78rem;font-weight:700;color:#15803d;white-space:nowrap;">✓ Confirmed</span>';
-      } else {
-        actionHtml = viewBtn + '<span style="font-size:0.78rem;font-weight:700;color:#b91c1c;white-space:nowrap;">✕ ' +
-          (currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1)) + '</span>';
-      }
+      // 3-dot Action button (no status shown in actions column!)
+      const dotsBtn =
+        '<button class="bk-dots-btn" data-id="' + esc(b.id) + '" type="button" aria-label="Booking actions" title="Actions"' +
+        ' style="width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#ffffff;color:#475569;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s ease;">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">' +
+          '<circle cx="12" cy="5" r="1.8"/>' +
+          '<circle cx="12" cy="12" r="1.8"/>' +
+          '<circle cx="12" cy="19" r="1.8"/>' +
+        '</svg>' +
+        '</button>';
 
       const tdStyle = 'style="padding:14px 16px;vertical-align:middle;' + borderStyle + 'background:' + bg + ';white-space:nowrap;"';
 
       return (
         '<tr>' +
-        // Name + avatar
-        '<td ' + tdStyle + '>' +
-          '<div style="display:flex;align-items:center;gap:10px;">' +
-            '<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#b45f3c,#9a4f32);color:#fff;font-size:0.78rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-transform:uppercase;">' + esc(initials) + '</div>' +
-            '<span style="font-weight:700;color:#1e293b;font-size:0.875rem;">' + esc(b.name) + '</span>' +
+        // 1. Guest Name + avatar (natural word wrap, never broken mid-word)
+        '<td style="padding:14px 16px;vertical-align:middle;' + borderStyle + 'background:' + bg + ';min-width:190px;max-width:240px;white-space:normal;">' +
+          '<div style="display:flex;align-items:center;gap:11px;">' +
+            '<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#b45f3c,#9a4f32);color:#fff;font-size:0.76rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-transform:uppercase;box-shadow:0 2px 5px rgba(180,95,60,0.22);">' + esc(initials) + '</div>' +
+            '<span style="font-weight:700;color:#0f172a;font-size:0.88rem;line-height:1.35;word-break:normal;overflow-wrap:normal;">' + esc(b.name) + '</span>' +
           '</div>' +
         '</td>' +
-        // Phone
-        '<td ' + tdStyle + '><span style="font-size:0.875rem;color:#475569;">' + esc(b.phone) + '</span></td>' +
-        // Email
-        '<td ' + tdStyle + '><span style="font-size:0.82rem;color:#475569;">' + esc(b.email) + '</span></td>' +
-        // Room
-        '<td style="padding:14px 16px;vertical-align:middle;' + borderStyle + 'background:' + bg + ';max-width:180px;white-space:normal;"><span style="font-weight:600;color:#1e293b;font-size:0.875rem;">' + esc(b.room) + '</span></td>' +
-        // Dates
-        '<td ' + tdStyle + '><span style="font-size:0.82rem;color:#475569;">' + fmtD(b.check_in) + ' → ' + fmtD(b.check_out) + '</span></td>' +
-        // Amount
-        '<td ' + tdStyle + '><span style="font-weight:700;color:#1e293b;font-size:0.875rem;">' + formatCurrency(b.total_amount) + '</span></td>' +
-        // Booked at
+        // 2. Status
+        '<td ' + tdStyle + '>' + badgeHtml + '</td>' +
+        // 3. Room
+        '<td style="padding:14px 16px;vertical-align:middle;' + borderStyle + 'background:' + bg + ';min-width:170px;max-width:220px;white-space:normal;line-height:1.35;"><span style="font-weight:600;color:#1e293b;font-size:0.85rem;">' + esc(b.room) + '</span></td>' +
+        // 4. Dates (Up and down)
+        '<td ' + tdStyle + '>' +
+          '<div style="display:flex;flex-direction:column;gap:4px;white-space:nowrap;">' +
+            '<div style="display:flex;align-items:center;gap:6px;">' +
+              '<span style="font-size:0.62rem;font-weight:800;padding:2px 5px;border-radius:4px;background:#e2e8f0;color:#475569;letter-spacing:0.03em;">IN</span>' +
+              '<span style="font-size:0.82rem;font-weight:600;color:#0f172a;">' + fmtD(b.check_in) + '</span>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:6px;">' +
+              '<span style="font-size:0.62rem;font-weight:800;padding:2px 5px;border-radius:4px;background:#fef3c7;color:#92400e;letter-spacing:0.03em;">OUT</span>' +
+              '<span style="font-size:0.82rem;font-weight:600;color:#64748b;">' + fmtD(b.check_out) + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</td>' +
+        // 5. Amount
+        '<td ' + tdStyle + '><span style="font-weight:800;color:#0f172a;font-size:0.92rem;font-variant-numeric:tabular-nums;">' + formatCurrency(b.total_amount) + '</span></td>' +
+        // 6. Phone
+        '<td ' + tdStyle + '><span style="font-size:0.84rem;font-weight:600;color:#475569;">' + esc(b.phone) + '</span></td>' +
+        // 7. Booked at
         '<td ' + tdStyle + '>' +
           '<div style="display:flex;flex-direction:column;gap:1px;">' +
             '<span style="font-weight:600;color:#1e293b;font-size:0.82rem;">' + bookedDate + '</span>' +
-            '<span style="font-size:0.75rem;color:#94a3b8;">' + bookedTime + '</span>' +
+            '<span style="font-size:0.74rem;color:#94a3b8;">' + bookedTime + '</span>' +
           '</div>' +
         '</td>' +
-        // Status
-        '<td ' + tdStyle + '>' + badgeHtml + '</td>' +
-        // Actions
-        '<td ' + tdStyle + '>' +
-          '<div style="display:flex;align-items:center;gap:6px;">' + actionHtml + '</div>' +
+        // 8. Actions (3-dot button only)
+        '<td style="padding:14px 16px;vertical-align:middle;text-align:center;width:70px;' + borderStyle + 'background:' + bg + ';">' +
+          dotsBtn +
         '</td>' +
         '</tr>'
       );
     }).join("");
 
-    // Attach View handlers
-    bookingsTbody.querySelectorAll(".bk-view-btn").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+    // Attach 3-dot menu handlers
+    bookingsTbody.querySelectorAll(".bk-dots-btn").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
         const booking = allBookings.find(function (b) { return String(b.id) === String(btn.dataset.id); });
-        if (booking) openBookingModal(booking);
-      });
-    });
-
-    // Attach Confirm / Reject handlers
-    bookingsTbody.querySelectorAll(".bk-accept-btn, .bk-reject-btn").forEach(function (btn) {
-      btn.addEventListener("click", async function () {
-        await updateBookingStatus(btn.dataset.id, btn.dataset.status);
+        if (booking) toggleActionMenu(btn, booking);
       });
     });
   }
+
+  // ── Floating 3-Dot Action Dropdown Menu ──────────────────────────────────
+  let actionDropdownEl = document.getElementById("bkActionDropdown");
+  if (!actionDropdownEl) {
+    actionDropdownEl = document.createElement("div");
+    actionDropdownEl.id = "bkActionDropdown";
+    actionDropdownEl.style.cssText =
+      "display:none;position:fixed;z-index:99999;background:#ffffff;border:1px solid #e2e8f0;" +
+      "border-radius:10px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15),0 6px 12px -3px rgba(0,0,0,0.08);" +
+      "min-width:148px;padding:6px;font-family:inherit;";
+    document.body.appendChild(actionDropdownEl);
+  }
+
+  function closeActionMenu() {
+    if (actionDropdownEl) {
+      actionDropdownEl.style.display = "none";
+      actionDropdownEl._currentBtn = null;
+    }
+  }
+
+  function toggleActionMenu(btn, booking) {
+    if (actionDropdownEl && actionDropdownEl.style.display === "block" && actionDropdownEl._currentBtn === btn) {
+      closeActionMenu();
+      return;
+    }
+
+    actionDropdownEl._currentBtn = btn;
+
+    // Only show Cancel when booking is currently confirmed
+    const isConfirmed = booking.status === "confirmed";
+    const isStuck     = !!booking._stuck;
+
+    actionDropdownEl.innerHTML =
+      '<div style="display:flex;flex-direction:column;gap:2px;">' +
+        // View
+        '<button type="button" class="bk-menu-item view" data-action="view" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 12px;border:none;background:transparent;color:#1e293b;font-size:0.82rem;font-weight:600;border-radius:6px;cursor:pointer;text-align:left;font-family:inherit;transition:background 0.12s;">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' +
+          '<span>View</span>' +
+        '</button>' +
+        // Mark Confirmed — only for stuck pending records (payment return failed)
+        (isStuck
+          ? '<button type="button" class="bk-menu-item mark-confirmed" data-action="mark-confirmed" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 12px;border:none;background:transparent;color:#047857;font-size:0.82rem;font-weight:600;border-radius:6px;cursor:pointer;text-align:left;font-family:inherit;transition:background 0.12s;">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+              '<span>Mark Confirmed</span>' +
+            '</button>' +
+            '<button type="button" class="bk-menu-item discard" data-action="discard" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 12px;border:none;background:transparent;color:#ef4444;font-size:0.82rem;font-weight:600;border-radius:6px;cursor:pointer;text-align:left;font-family:inherit;transition:background 0.12s;">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+              '<span>Discard (Cancel)</span>' +
+            '</button>'
+          : '') +
+        // Cancel — only shown when booking is confirmed
+        (isConfirmed
+          ? '<button type="button" class="bk-menu-item cancel" data-action="cancel" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 12px;border:none;background:transparent;color:#ef4444;font-size:0.82rem;font-weight:600;border-radius:6px;cursor:pointer;text-align:left;font-family:inherit;transition:background 0.12s;">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+              '<span>Cancel Booking</span>' +
+            '</button>'
+          : '') +
+      '</div>';
+
+    // Hover state styling
+    actionDropdownEl.querySelectorAll(".bk-menu-item").forEach(function(item) {
+      item.addEventListener("mouseenter", function() {
+        if (item.classList.contains("cancel") || item.classList.contains("discard")) item.style.background = "#fef2f2";
+        else if (item.classList.contains("mark-confirmed")) item.style.background = "#ecfdf5";
+        else item.style.background = "#f1f5f9";
+      });
+      item.addEventListener("mouseleave", function() {
+        item.style.background = "transparent";
+      });
+    });
+
+    // Event listeners
+    const viewItem          = actionDropdownEl.querySelector('[data-action="view"]');
+    const cancelItem        = actionDropdownEl.querySelector('[data-action="cancel"]');
+    const markConfirmedItem = actionDropdownEl.querySelector('[data-action="mark-confirmed"]');
+    const discardItem       = actionDropdownEl.querySelector('[data-action="discard"]');
+
+    if (viewItem) {
+      viewItem.addEventListener("click", function() {
+        closeActionMenu();
+        openBookingModal(booking);
+      });
+    }
+    if (cancelItem) {
+      cancelItem.addEventListener("click", async function() {
+        closeActionMenu();
+        const confirmed = window.confirm(
+          "Cancel this booking for " + (booking.name || "guest") + "?\n" +
+          "Room: " + (booking.room || "—") + "\n" +
+          "This will release the room for new bookings."
+        );
+        if (confirmed) await updateBookingStatus(booking.id, "cancelled");
+      });
+    }
+    if (markConfirmedItem) {
+      markConfirmedItem.addEventListener("click", async function() {
+        closeActionMenu();
+        const ok = window.confirm(
+          "Mark this booking as Confirmed for " + (booking.name || "guest") + "?\n" +
+          "Room: " + (booking.room || "—") + "\n\n" +
+          "Use this only if the customer's payment was successful but the redirect failed."
+        );
+        if (ok) await updateBookingStatus(booking.id, "confirmed");
+      });
+    }
+    if (discardItem) {
+      discardItem.addEventListener("click", async function() {
+        closeActionMenu();
+        const ok = window.confirm(
+          "Discard this stuck booking for " + (booking.name || "guest") + "?\n" +
+          "This will mark it as Cancelled."
+        );
+        if (ok) await updateBookingStatus(booking.id, "cancelled");
+      });
+    }
+
+    // Position menu
+    actionDropdownEl.style.display = "block";
+    const rect = btn.getBoundingClientRect();
+    const menuWidth = 168;
+    let leftPos = rect.right - menuWidth;
+    if (leftPos < 10) leftPos = 10;
+    let topPos = rect.bottom + 6;
+
+    if (topPos + 160 > window.innerHeight) {
+      topPos = rect.top - 165;
+    }
+
+    actionDropdownEl.style.top = topPos + "px";
+    actionDropdownEl.style.left = leftPos + "px";
+  }
+
+  // Close menu on clicks outside or scroll or Escape
+  document.addEventListener("click", function(e) {
+    if (!e.target.closest(".bk-dots-btn") && !e.target.closest("#bkActionDropdown")) {
+      closeActionMenu();
+    }
+  });
+  window.addEventListener("scroll", closeActionMenu, true);
+  window.addEventListener("resize", closeActionMenu);
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") closeActionMenu();
+  });
 
   // ── Update status ─────────────────────────────────────────────────────────
   async function updateBookingStatus(id, status) {
@@ -200,12 +356,19 @@
     try {
       const { error } = await db.from("bookings").update({ status: status }).eq("id", id);
       if (error) throw new Error(error.message);
-      const b = allBookings.find(function (x) { return x.id === id; });
-      if (b) b.status = status;
+      // Remove cancelled bookings from the local list (they'll still show via realtime if needed)
+      if (status === "cancelled") {
+        const b = allBookings.find(function (x) { return String(x.id) === String(id); });
+        if (b) b.status = "cancelled";
+      } else {
+        const b = allBookings.find(function (x) { return String(x.id) === String(id); });
+        if (b) b.status = status;
+      }
+      updateNavBadge();
       applyFilters();
       showMessage(
-        status === "confirmed" ? "Booking confirmed ✓" : "Booking rejected.",
-        status === "confirmed" ? "success" : "error"
+        status === "completed" ? "Booking marked as Completed ✓" : (status === "cancelled" ? "Booking cancelled — room is now available." : "Booking updated."),
+        status === "completed" ? "success" : "error"
       );
     } catch (err) {
       showMessage("Update failed: " + err.message, "error");
@@ -233,48 +396,98 @@
         (b.email || "").toLowerCase().includes(q) ||
         (b.phone || "").includes(q) ||
         (b.room  || "").toLowerCase().includes(q);
-      const matchStatus = !status || (b.status || "pending") === status;
+      const bStatus = b.status || "pending";
+      const matchStatus = !status || bStatus === status;
       return matchQ && matchStatus;
     });
 
     renderBookings(filtered);
   }
 
-  // ── Update nav badge & overview counter ───────────────────────────────────
+  // ── Update nav badge, overview counter & status tabs ──────────────────────
   function updateNavBadge() {
-    const pendingCount = allBookings.filter(function (b) { return b.status === "pending"; }).length;
+    const totalCount     = allBookings.length;
+    const confirmedCount = allBookings.filter(function (b) { return b.status === "confirmed"; }).length;
+    const cancelledCount = allBookings.filter(function (b) { return b.status === "cancelled"; }).length;
+    const completedCount = allBookings.filter(function (b) { return b.status === "completed"; }).length;
 
     const overviewEl = document.getElementById("totalBookingsOverview");
-    if (overviewEl) overviewEl.textContent = String(allBookings.length);
+    if (overviewEl) overviewEl.textContent = String(totalCount);
 
+    const countAllEl       = document.getElementById("countAll");
+    const countConfirmedEl = document.getElementById("countConfirmed");
+    const countCancelledEl = document.getElementById("countCancelled");
+    const countCompletedEl = document.getElementById("countCompleted");
+
+    if (countAllEl)       countAllEl.textContent = String(totalCount);
+    if (countConfirmedEl) countConfirmedEl.textContent = String(confirmedCount);
+    if (countCancelledEl) countCancelledEl.textContent = String(cancelledCount);
+    if (countCompletedEl) countCompletedEl.textContent = String(completedCount);
+
+    // Nav badge shows confirmed (paid, active) booking count
     const navBtn = document.getElementById("navBookingTab");
     if (navBtn) {
       const existing = navBtn.querySelector(".nav-pending-badge");
       if (existing) existing.remove();
-      if (pendingCount > 0) {
+      if (confirmedCount > 0) {
         const badge = document.createElement("span");
         badge.className = "nav-pending-badge";
-        badge.textContent = pendingCount;
+        badge.textContent = confirmedCount;
         badge.style.cssText =
-          "background:#e74c3c;color:#fff;border-radius:50%;font-size:0.65rem;font-weight:700;" +
+          "background:#10b981;color:#fff;border-radius:50%;font-size:0.65rem;font-weight:700;" +
           "padding:1px 6px;margin-left:6px;vertical-align:middle;display:inline-block;min-width:18px;text-align:center;";
         navBtn.appendChild(badge);
       }
     }
   }
 
+  // ── Status Chips Filter Synchronization ───────────────────────────────────
+  function syncStatusChips(selectedStatus) {
+    const chips = document.querySelectorAll(".status-chip");
+    chips.forEach(function (chip) {
+      const chipStatus = chip.getAttribute("data-status") || "";
+      const isActive = chipStatus === selectedStatus;
+      chip.classList.toggle("active", isActive);
+      if (isActive) {
+        chip.style.background = "#17211d";
+        chip.style.color = "#ffffff";
+        chip.style.borderColor = "#17211d";
+      } else {
+        const colorMap = {
+          "":          { bg: "#ffffff", text: "#475569", border: "#e2e8f0" },
+          "confirmed": { bg: "#ecfdf5", text: "#047857", border: "#a7f3d0" },
+          "cancelled": { bg: "#fef2f2", text: "#b91c1c", border: "#fecaca" },
+          "completed": { bg: "#f0f9ff", text: "#0284c7", border: "#bae6fd" },
+        };
+        const c = colorMap[chipStatus] || colorMap[""];
+        chip.style.background = c.bg;
+        chip.style.color = c.text;
+        chip.style.borderColor = c.border;
+      }
+    });
+  }
+
+  document.querySelectorAll(".status-chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      const s = chip.getAttribute("data-status") || "";
+      if (bookingsStatusFilter) bookingsStatusFilter.value = s;
+      syncStatusChips(s);
+      applyFilters();
+    });
+  });
+
   // ── Load ──────────────────────────────────────────────────────────────────
   async function loadBookings() {
     if (!bookingsTbody) return;
     bookingsTbody.innerHTML =
-      '<tr><td colspan="9" class="bookings-loading">Loading bookings…</td></tr>';
+      '<tr><td colspan="8" class="bookings-loading">Loading bookings…</td></tr>';
     try {
       allBookings = await fetchBookings();
       updateNavBadge();
       applyFilters();
     } catch (err) {
       bookingsTbody.innerHTML =
-        '<tr><td colspan="9" class="bookings-empty" style="color:#b45f3c;">Error: ' +
+        '<tr><td colspan="8" class="bookings-empty" style="color:#b45f3c;">Error: ' +
         esc(err.message) + "</td></tr>";
     }
   }
@@ -282,7 +495,12 @@
   // ── Event listeners ───────────────────────────────────────────────────────
   if (refreshBookingsBtn) refreshBookingsBtn.addEventListener("click", loadBookings);
   if (bookingsSearch)     bookingsSearch.addEventListener("input", applyFilters);
-  if (bookingsStatusFilter) bookingsStatusFilter.addEventListener("change", applyFilters);
+  if (bookingsStatusFilter) {
+    bookingsStatusFilter.addEventListener("change", function () {
+      syncStatusChips(bookingsStatusFilter.value);
+      applyFilters();
+    });
+  }
 
   // ── Supabase Realtime — new bookings appear instantly ─────────────────────
   (function setupRealtime() {
@@ -353,13 +571,18 @@
     };
 
     const html =
-      // Status banner
-      '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:' + s.bg + ';border-radius:10px;margin-bottom:22px;">' +
-        '<span style="font-size:0.8rem;font-weight:700;color:' + s.color + ';">Status</span>' +
-        '<span style="display:inline-flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:800;color:' + s.color + ';">' +
-          '<span style="width:8px;height:8px;border-radius:50%;background:' + s.color + ';display:inline-block;"></span>' +
-          s.label +
-        '</span>' +
+      // Status banner — read-only (no inline changer in modal)
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:' + s.bg + ';border-radius:10px;margin-bottom:22px;flex-wrap:wrap;gap:12px;">' +
+        '<div>' +
+          '<span style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:' + s.color + ';display:block;">Booking Status</span>' +
+          '<span style="display:inline-flex;align-items:center;gap:6px;font-size:0.95rem;font-weight:800;color:' + s.color + ';margin-top:2px;">' +
+            '<span style="width:8px;height:8px;border-radius:50%;background:' + s.color + ';display:inline-block;"></span>' +
+            s.label +
+          '</span>' +
+        '</div>' +
+        (b.status === "confirmed"
+          ? '<button id="bdmCancelBtn" style="padding:7px 16px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:7px;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:inherit;">Cancel Booking</button>'
+          : '') +
       '</div>' +
 
       // Guest details section
@@ -390,6 +613,25 @@
         : '');
 
     if (modalBody) modalBody.innerHTML = html;
+
+    // Cancel button inside modal (only present when status is confirmed)
+    const modalCancelBtn = document.getElementById("bdmCancelBtn");
+    if (modalCancelBtn) {
+      modalCancelBtn.addEventListener("click", async function () {
+        const ok = window.confirm(
+          "Cancel this booking for " + (b.name || "guest") + "?\n" +
+          "Room: " + (b.room || "—") + "\n" +
+          "This will release the room for new bookings on the website."
+        );
+        if (!ok) return;
+        modalCancelBtn.disabled = true;
+        modalCancelBtn.textContent = "Cancelling…";
+        await updateBookingStatus(b.id, "cancelled");
+        b.status = "cancelled";
+        closeBookingModal();
+      });
+    }
+
     overlay.style.display = "flex";
     document.body.style.overflow = "hidden";
 

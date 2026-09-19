@@ -36,8 +36,10 @@ console.log("   CCA_MERCHANT  :", CCAVENUE_MERCHANT_ID ? "✅ set" : "❌ MISSIN
 const CCA_GATEWAY_URL  = CCAVENUE_URL || "https://secure.ccavenue.com/transaction/transaction.do?command=initiateTransaction";
 const API_BASE_URL     = BACKEND_URL  || "http://localhost:3000";
 const UI_BASE_URL      = FRONTEND_URL || "http://localhost:49383";
-// Domain registered with CCAvenue — redirect_url must use this domain
-const CCA_REDIRECT_DOMAIN = CCAVENUE_REDIRECT_DOMAIN || API_BASE_URL;
+
+// CCAvenue MUST post back to the API server (Render), NOT the website domain.
+// CCAVENUE_REDIRECT_DOMAIN is kept for backward compatibility but API_BASE_URL takes priority.
+const CCA_REDIRECT_DOMAIN = API_BASE_URL;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error(
@@ -406,6 +408,26 @@ app.post("/api/bookings", async (req, res) => {
   res.status(201).json({ ok: true, order_id: orderId, booking_id: bookingId });
 });
 
+// ─── GET /api/bookings/confirmed ─────────────────────────────────────────────
+/**
+ * Returns only confirmed bookings with room, check_in, check_out fields.
+ * Used by the booking page to block already-booked room dates.
+ * No PII (name, email, phone) is returned — safe for public access.
+ */
+app.get("/api/bookings/confirmed", async (_req, res) => {
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("room, check_in, check_out")
+    .eq("status", "confirmed");
+
+  if (error) {
+    console.error("confirmed bookings fetch error:", error);
+    return sendError(res, 500, error.message);
+  }
+
+  res.json(data || []);
+});
+
 // ─── Payment Routes (CCAvenue) ────────────────────────────────────────────────
 
 /**
@@ -436,7 +458,9 @@ app.post("/api/payment/initiate", async (req, res) => {
   // Generate a unique order ID
   const orderId = "CNH-" + Date.now() + "-" + Math.floor(Math.random() * 9000 + 1000);
 
-  // 1. Save booking as PENDING in Supabase
+  // 1. Save booking as CONFIRMED immediately in Supabase.
+  //    If CCAvenue returns with failure/abort, status is downgraded to cancelled/failed.
+  //    Saving as confirmed upfront ensures the booking is visible in admin right away.
   const { data: insertedRows, error: insertError } = await supabase
     .from("bookings")
     .insert([{
@@ -450,8 +474,9 @@ app.post("/api/payment/initiate", async (req, res) => {
       children: Number(children) || 0,
       requests: requests || null,
       total_amount: Number(total_amount),
-      status: "pending",
+      status: "confirmed",
       order_id: orderId,
+      booked_at: new Date().toISOString(),
     }])
     .select("id");
 
@@ -527,9 +552,13 @@ app.post("/api/payment/initiate", async (req, res) => {
 app.post("/api/payment/return", express.urlencoded({ extended: false }), async (req, res) => {
   const encResponse = req.body.encResp;
 
+  // Frontend URL for redirecting customer after payment
+  // payment-return.html lives at root of frontend, not under /frontend/
+  const PAYMENT_RETURN_BASE = "https://www.cloudynandyhills.com";
+
   if (!encResponse) {
     return res.redirect(
-      `${UI_BASE_URL.replace(/\/$/, "")}/frontend/payment-return.html?status=error`
+      `${PAYMENT_RETURN_BASE}/payment-return.html?status=error`
     );
   }
 
@@ -541,31 +570,33 @@ app.post("/api/payment/return", express.urlencoded({ extended: false }), async (
   } catch (err) {
     console.error("CCAvenue decrypt error:", err);
     return res.redirect(
-      `${UI_BASE_URL.replace(/\/$/, "")}/frontend/payment-return.html?status=error`
+      `${PAYMENT_RETURN_BASE}/payment-return.html?status=error`
     );
   }
 
   const orderId      = parsed.order_id || "";
-  const ccaStatus    = (parsed.order_status || "").toLowerCase(); // Success / Failure / Aborted
+  const ccaStatus    = (parsed.order_status || "").toLowerCase(); // success / failure / aborted
   const trackingId   = parsed.tracking_id || "";
   const amount       = parsed.amount || "";
   const bookingId    = parsed.merchant_param1 || "";
 
-  // Map CCAvenue status to our status
+  // Booking was already saved as "confirmed" at initiation.
+  // On success → keep confirmed, just save the tracking ID.
+  // On abort/failure → downgrade to cancelled/failed.
   let dbStatus;
   let uiStatus;
   if (ccaStatus === "success") {
-    dbStatus = "confirmed";
+    dbStatus = "confirmed"; // already confirmed — no change needed, just update tracking
     uiStatus = "success";
   } else if (ccaStatus === "aborted") {
-    dbStatus = "cancelled";
+    dbStatus = "cancelled"; // customer cancelled — downgrade
     uiStatus = "cancelled";
   } else {
-    dbStatus = "failed";
+    dbStatus = "cancelled"; // payment failed — downgrade (not 'failed' to keep admin clean)
     uiStatus = "failed";
   }
 
-  // Update booking status in Supabase
+  // Update booking in Supabase (always save tracking_id; downgrade status if needed)
   if (orderId) {
     const updatePayload = {
       status: dbStatus,
@@ -592,7 +623,7 @@ app.post("/api/payment/return", express.urlencoded({ extended: false }), async (
   });
 
   return res.redirect(
-    `${UI_BASE_URL.replace(/\/$/, "")}/frontend/payment-return.html?${params.toString()}`
+    `${PAYMENT_RETURN_BASE}/payment-return.html?${params.toString()}`
   );
 });
 
