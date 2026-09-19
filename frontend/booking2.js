@@ -244,19 +244,22 @@
         <button class="bk-slider-btn prev" data-sid="${i}" aria-label="Prev">&#10094;</button>
         <button class="bk-slider-btn next" data-sid="${i}" aria-label="Next">&#10095;</button>` : "";
 
-      // Book button: blocked = "Booked" badge, inCart = "Added", else normal button
+      // Book button: blocked = "Booked" button, inCart = "Added", else normal button
       const bookBtn = blocked
-        ? `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:999px;font-size:0.78rem;font-weight:700;">
-             <svg width="12" height="12" viewBox="0 0 24 24" fill="#b91c1c"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15" stroke="#fff" stroke-width="2"/><line x1="9" y1="9" x2="15" y2="15" stroke="#fff" stroke-width="2"/></svg>
+        ? `<button class="bk-book-btn is-booked" disabled style="background:#f1f5f9;color:#94a3b8;border:1px solid #cbd5e1;cursor:not-allowed;display:inline-flex;align-items:center;gap:5px;box-shadow:none;padding:5px 14px;font-size:0.82rem;font-weight:700;border-radius:4px;">
+             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
              Booked
-           </span>`
+           </button>`
         : inCart
         ? `<span style="color:#b45f3c;font-weight:700;font-size:0.82rem;">Added</span>`
         : `<button class="bk-book-btn" data-rid="${esc(r.id)}">Book Room</button>`;
 
       return `
         <div class="bk-room-card" id="card-${esc(r.id)}">
-          <div class="bk-room-title"><h3>${esc(r.name)}</h3></div>
+          <div class="bk-room-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <h3>${esc(r.name)}</h3>
+            ${blocked ? `<span style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Dates Unavailable</span>` : ''}
+          </div>
           <div class="bk-room-body">
 
             <div class="bk-room-img-wrap">
@@ -306,8 +309,11 @@
 
               <div class="bk-info-bar">
                 <span class="bk-room-info-lbl"><span class="bk-i-icon">i</span> Room Info</span>
-                <span>
-                  <span class="bk-rooms-left">${roomsLeft} Room(s) Left</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;">
+                  ${blocked
+                    ? `<span class="bk-rooms-left" style="color:#dc2626;font-weight:600;font-size:0.80rem;">Unavailable for dates</span>`
+                    : `<span class="bk-rooms-left">${roomsLeft} Room(s) Left</span>`
+                  }
                   ${bookBtn}
                 </span>
               </div>
