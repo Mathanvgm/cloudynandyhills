@@ -34,12 +34,14 @@ console.log("   CCA_MERCHANT  :", CCAVENUE_MERCHANT_ID ? "✅ set" : "❌ MISSIN
 
 // Provide safe defaults AFTER reading from env (never overwrite a real value)
 const CCA_GATEWAY_URL  = CCAVENUE_URL || "https://secure.ccavenue.com/transaction/transaction.do?command=initiateTransaction";
-const API_BASE_URL     = BACKEND_URL  || "http://localhost:3000";
-const UI_BASE_URL      = FRONTEND_URL || "http://localhost:49383";
+const API_BASE_URL     = BACKEND_URL  || "https://cloudynandyhills.onrender.com";
+const UI_BASE_URL      = FRONTEND_URL || "https://www.cloudynandyhills.com";
 
-// CCAvenue MUST post back to the API server (Render), NOT the website domain.
-// CCAVENUE_REDIRECT_DOMAIN is kept for backward compatibility but API_BASE_URL takes priority.
-const CCA_REDIRECT_DOMAIN = API_BASE_URL;
+// ── Hard-coded production URLs (do not depend on env vars that may be missing) ──
+// CCAvenue MUST post back to the API/backend server (Render), not the website.
+const CCA_REDIRECT_DOMAIN   = API_BASE_URL;
+// After payment, customer is redirected to this page (frontend website).
+const PAYMENT_RETURN_BASE   = "https://www.cloudynandyhills.com";
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error(
