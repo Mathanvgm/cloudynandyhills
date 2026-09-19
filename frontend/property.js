@@ -1,5 +1,30 @@
 const API_BASE = "https://cloudynandyhills.onrender.com";
 
+// ── Confirmed bookings — used to block already-booked rooms ─────────────────
+let confirmedBookings = [];
+
+async function fetchConfirmedBookings() {
+  try {
+    const res = await fetch(API_BASE + "/api/bookings/confirmed");
+    if (!res.ok) return;
+    confirmedBookings = await res.json();
+  } catch (e) {
+    confirmedBookings = [];
+  }
+}
+
+function isRoomBlockedForDates(roomName, checkInVal, checkOutVal) {
+  if (!checkInVal || !checkOutVal) return false;
+  const selIn  = new Date(checkInVal  + "T00:00:00");
+  const selOut = new Date(checkOutVal + "T00:00:00");
+  return confirmedBookings.some(function (b) {
+    if ((b.room || "").trim().toLowerCase() !== (roomName || "").trim().toLowerCase()) return false;
+    const bIn  = new Date(b.check_in  + "T00:00:00");
+    const bOut = new Date(b.check_out + "T00:00:00");
+    return bIn < selOut && bOut > selIn;
+  });
+}
+
 const today = new Date();
 today.setHours(0, 0, 0, 0);
 
@@ -88,6 +113,9 @@ const widgetBookingForm = document.querySelector("#widgetBookingForm");
 
 let currentProperty = null;
 
+// Reference to the Book button so we can toggle it
+const widgetBookBtn = document.querySelector('#widgetBookingForm button[type="submit"]');
+
 const getNightCount = () => {
   const start = new Date(`${widgetCheckIn.value}T00:00:00`);
   const end = new Date(`${widgetCheckOut.value}T00:00:00`);
@@ -115,6 +143,7 @@ const syncCheckoutMinimum = () => {
   }
 
   updateWidgetSummary();
+  updateBookButton();
 };
 
 const setupWidgetForm = (property) => {
@@ -134,9 +163,28 @@ const setupWidgetForm = (property) => {
 
   widgetBookingForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    // Don't navigate if room is blocked
+    if (currentProperty && isRoomBlockedForDates(currentProperty.name, widgetCheckIn.value, widgetCheckOut.value)) return;
     window.location.href = "./booking.html";
   });
 };
+
+// Update the Book button based on room blocking status
+function updateBookButton() {
+  if (!widgetBookBtn || !currentProperty) return;
+  const blocked = isRoomBlockedForDates(currentProperty.name, widgetCheckIn.value, widgetCheckOut.value);
+  if (blocked) {
+    widgetBookBtn.textContent = "Booked";
+    widgetBookBtn.disabled = true;
+    widgetBookBtn.style.opacity = "0.7";
+    widgetBookBtn.style.cursor = "not-allowed";
+  } else {
+    widgetBookBtn.textContent = "Book This Room";
+    widgetBookBtn.disabled = false;
+    widgetBookBtn.style.opacity = "";
+    widgetBookBtn.style.cursor = "";
+  }
+}
 
 const renderPropertyDetails = (property) => {
   document.title = `${property.name} | Cloud Nandy`;
@@ -211,9 +259,17 @@ const initializePropertyPage = async () => {
   }
 
   try {
-    const property = await fetchPropertyById(id);
+    // Fetch property and confirmed bookings in parallel
+    const [property] = await Promise.all([
+      fetchPropertyById(id),
+      fetchConfirmedBookings(),
+    ]);
     currentProperty = property;
     renderPropertyDetails(property);
+    updateBookButton();
+
+    // Also update button when checkout date changes
+    widgetCheckOut.addEventListener("change", updateBookButton);
   } catch (error) {
     loadingState.innerHTML = `
       <p class="empty-list">Unable to load property details. ${escapeHtml(error.message)}<br><br><a href="./index.html#rooms" style="text-decoration: underline;">Back to Rooms</a></p>
