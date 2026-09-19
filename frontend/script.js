@@ -1,5 +1,31 @@
 const API_BASE = "https://cloudynandyhills.onrender.com";
 
+// ── Confirmed bookings — used to block already-booked rooms ─────────────────
+let confirmedBookings = []; // [{room, check_in, check_out}]
+
+async function fetchConfirmedBookings() {
+  try {
+    const res = await fetch(API_BASE + "/api/bookings/confirmed");
+    if (!res.ok) return;
+    confirmedBookings = await res.json();
+  } catch (e) {
+    confirmedBookings = [];
+  }
+}
+
+// Returns true if the room has a confirmed booking overlapping the given dates
+function isRoomBlockedForDates(roomName, checkInVal, checkOutVal) {
+  if (!checkInVal || !checkOutVal) return false;
+  const selIn  = new Date(checkInVal  + "T00:00:00");
+  const selOut = new Date(checkOutVal + "T00:00:00");
+  return confirmedBookings.some(function (b) {
+    if ((b.room || "").trim().toLowerCase() !== (roomName || "").trim().toLowerCase()) return false;
+    const bIn  = new Date(b.check_in  + "T00:00:00");
+    const bOut = new Date(b.check_out + "T00:00:00");
+    return bIn < selOut && bOut > selIn;
+  });
+}
+
 const today = new Date();
 today.setHours(0, 0, 0, 0);
 
@@ -159,9 +185,15 @@ const applyRoomFiltersAndSort = () => {
               <span>${formatRupees(property.price)}/night</span>
               <div class="room-card-actions">
                 <a class="text-button" href="./property.html?id=${property.id}">Details</a>
-                <button class="text-button" type="button" data-room-select="${escapeHtml(property.name)}" data-room-id="${property.id}">
-                  Book
-                </button>
+                ${isRoomBlockedForDates(property.name, quickCheckIn ? quickCheckIn.value : '', quickCheckOut ? quickCheckOut.value : '')
+                  ? `<span class="booked-badge" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:999px;font-size:0.78rem;font-weight:700;cursor:default;">
+                       <svg width="11" height="11" viewBox="0 0 24 24" fill="#b91c1c"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15" stroke="#fff" stroke-width="2"/><line x1="9" y1="9" x2="15" y2="15" stroke="#fff" stroke-width="2"/></svg>
+                       Booked
+                     </span>`
+                  : `<button class="text-button" type="button" data-room-select="${escapeHtml(property.name)}" data-room-id="${property.id}">
+                       Book
+                     </button>`
+                }
               </div>
             </div>
           </div>
@@ -197,7 +229,11 @@ const renderPublicUploadedProperties = async () => {
   roomGrid.innerHTML = '<p class="empty-list">Loading properties from Supabase...</p>';
 
   try {
-    const properties = await fetchProperties();
+    // Fetch properties and confirmed bookings in parallel
+    const [properties] = await Promise.all([
+      fetchProperties(),
+      fetchConfirmedBookings(),
+    ]);
 
     if (!properties.length) {
       roomGrid.innerHTML =
@@ -336,6 +372,14 @@ quickCheckIn.addEventListener("change", () => {
   if (new Date(`${quickCheckOut.value}T00:00:00`) <= selectedCheckIn) {
     quickCheckOut.value = dateToInputValue(minCheckout);
   }
+
+  // Re-render rooms so "Booked" badges update for the new dates
+  fetchConfirmedBookings().then(() => applyRoomFiltersAndSort());
+});
+
+quickCheckOut.addEventListener("change", () => {
+  // Re-render rooms so "Booked" badges update for the new dates
+  fetchConfirmedBookings().then(() => applyRoomFiltersAndSort());
 });
 
 quickBookingForm.addEventListener("submit", (event) => {
