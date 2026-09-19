@@ -27,6 +27,6 @@ services:
       - key: BACKEND_URL
         value: https://cloudynandyhills.onrender.com
       - key: FRONTEND_URL
-        value: https://mnccoimbatore.in
-      - key: CCAVENUE_REDIRECT_DOMAIN
         value: https://www.cloudynandyhills.com
+      - key: CCAVENUE_REDIRECT_DOMAIN
+        value: https://cloudynandyhills.onrender.com
