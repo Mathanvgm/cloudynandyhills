@@ -4724,6 +4724,8 @@ button.text-button {
   white-space: nowrap !important;
   flex-shrink: 0 !important;
   box-sizing: border-box !important;
+  line-height: 1 !important;
+  height: 29px !important;
 }
 
 a.text-button {
@@ -4749,6 +4751,17 @@ button.text-button:hover {
   background: linear-gradient(135deg, #c26942 0%, #e8834f 100%) !important;
   transform: translateY(-1px) !important;
   box-shadow: 0 8px 22px rgba(180, 95, 60, 0.55) !important;
+}
+
+button.text-button.is-booked,
+.text-button.is-booked {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  transform: none !important;
 }
 
 
