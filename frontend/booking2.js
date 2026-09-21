@@ -93,10 +93,16 @@
   let galleryTimers = [];
 
   // ── Supabase Setup ───────────────────────────────────────────────────────────
-  const cfg = window.SUPABASE_CONFIG || {};
-  let db = null;
-  if (cfg.url && cfg.anonKey && window.supabase) {
-    db = window.supabase.createClient(cfg.url, cfg.anonKey);
+  function getDb() {
+    if (window.supabaseClient) return window.supabaseClient;
+    const cfg = window.CLOUD_NANDY_SUPABASE || window.SUPABASE_CONFIG || {};
+    const url = cfg.url || "https://wyjkehxbybkakgxdnoje.supabase.co";
+    const key = cfg.key || cfg.anonKey || "sb_publishable_FmN54Y2I0thkiRcGsoZWzg_VSfI6Dia";
+    if (window.supabase) {
+      window.supabaseClient = window.supabase.createClient(url, key);
+      return window.supabaseClient;
+    }
+    return null;
   }
 
   const API_BASE = "https://cloudynandyhills.onrender.com";
@@ -296,9 +302,11 @@
 
   // ── Fetch Rooms ──────────────────────────────────────────────────────────────
   async function fetchRooms() {
+    const db = getDb();
     if (!db) throw new Error("Database not configured.");
+    const tableName = (window.CLOUD_NANDY_SUPABASE && window.CLOUD_NANDY_SUPABASE.table) || "properties";
     const { data, error } = await db
-      .from(cfg.table)
+      .from(tableName)
       .select("*")
       .order("created_at", { ascending: false });
     if (error) throw error;
