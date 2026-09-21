@@ -52,84 +52,225 @@
         padding-bottom: 80px;
       }
 
-      /* ── Luxury Top Navigation ── */
-      .bk-nav {
+      /* ── Site Header (Same as Home Page) ── */
+      .site-header {
         position: sticky;
         top: 0;
-        z-index: 100;
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        background: rgba(8, 17, 14, 0.88);
-        border-bottom: 1px solid var(--border-glass);
-        padding: 16px 28px;
+        z-index: 1000;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 20px;
+        padding: 16px clamp(18px, 4vw, 56px);
+        color: #ffffff;
+        background: rgba(8, 17, 14, 0.94);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-bottom: 1px solid rgba(255, 209, 179, 0.15);
+        box-sizing: border-box;
       }
 
-      .bk-nav-brand {
+      .brand {
         display: flex;
         align-items: center;
-        gap: 14px;
+        gap: 12px;
         text-decoration: none;
-      }
-
-      .bk-nav-logo {
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
-        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        font-weight: 800;
-        font-size: 1.2rem;
-        box-shadow: 0 4px 16px rgba(224, 142, 69, 0.35);
-      }
-
-      .bk-nav-title {
+        color: #ffffff;
         font-family: 'Playfair Display', serif;
         font-size: 1.35rem;
         font-weight: 700;
-        color: #ffffff;
         letter-spacing: 0.02em;
-        line-height: 1.2;
+        line-height: 1;
       }
 
-      .bk-nav-sub {
-        font-size: 0.76rem;
-        color: var(--text-gold);
-        letter-spacing: 0.04em;
+      .brand-logo {
+        height: 44px;
+        width: auto;
+        max-width: 140px;
+        border-radius: 8px;
+        object-fit: contain;
+        border: 1.5px solid rgba(255, 255, 255, 0.4);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        flex-shrink: 0;
+        background: #ffffff;
       }
 
-      .bk-nav-actions {
+      .brand:hover .brand-logo {
+        transform: translateY(-1px) scale(1.04);
+        border-color: var(--accent);
+        box-shadow: 0 4px 14px rgba(224, 142, 69, 0.35);
+      }
+
+      .nav {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 14px;
       }
 
-      .bk-btn-back {
+      .nav a.nav-link {
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 14px;
+        border-radius: 99px;
+        opacity: 0.9;
+        transition: background 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+      }
+
+      .nav a.nav-link:hover,
+      .nav a.nav-link.active {
+        background: rgba(255, 255, 255, 0.12);
+        opacity: 1;
+        color: var(--text-gold);
+      }
+
+      .nav-admin-btn {
+        padding: 9px 22px;
+        border-radius: 99px;
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+        border: none;
+        color: #ffffff;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 0.86rem;
+        box-shadow: 0 4px 18px rgba(180, 95, 60, 0.38);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid var(--border-glass);
-        color: var(--text-main);
-        padding: 9px 18px;
-        border-radius: 30px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        text-decoration: none;
-        transition: all 0.25s ease;
+        justify-content: center;
       }
 
-      .bk-btn-back:hover {
-        background: rgba(224, 142, 69, 0.2);
-        border-color: var(--accent);
-        color: #fff;
-        transform: translateX(-3px);
+      .nav-admin-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 28px rgba(180, 95, 60, 0.52);
+        color: #ffffff;
+      }
+
+      .nav-toggle {
+        display: none;
+        flex-direction: column;
+        justify-content: space-around;
+        width: 42px;
+        height: 42px;
+        padding: 10px 8px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 12px;
+        cursor: pointer;
+        z-index: 1001;
+        transition: all 0.25s ease;
+        margin-left: auto;
+      }
+
+      .nav-toggle span {
+        display: block;
+        width: 100%;
+        height: 2px;
+        background: #ffffff;
+        border-radius: 2px;
+        transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        transform-origin: center;
+      }
+
+      @media (max-width: 992px) {
+        .nav-toggle {
+          display: flex !important;
+        }
+
+        .site-header {
+          padding: 10px 18px !important;
+          height: 64px !important;
+        }
+
+        .site-header .brand-logo {
+          height: 38px !important;
+        }
+
+        .site-header .brand span {
+          font-size: 1.15rem !important;
+        }
+
+        .site-header.nav-open .nav-toggle {
+          background: rgba(180, 95, 60, 0.25) !important;
+          border-color: rgba(180, 95, 60, 0.5) !important;
+        }
+
+        .site-header.nav-open .nav-toggle span:nth-child(1) {
+          transform: translateY(7px) rotate(45deg);
+        }
+
+        .site-header.nav-open .nav-toggle span:nth-child(2) {
+          opacity: 0;
+          transform: scaleX(0);
+        }
+
+        .site-header.nav-open .nav-toggle span:nth-child(3) {
+          transform: translateY(-7px) rotate(-45deg);
+        }
+
+        .site-header .nav {
+          display: flex !important;
+          flex-direction: column !important;
+          position: fixed !important;
+          top: 64px !important;
+          left: 0 !important;
+          right: 0 !important;
+          width: 100% !important;
+          background: rgba(8, 16, 13, 0.97) !important;
+          backdrop-filter: blur(28px) saturate(180%) !important;
+          -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+          border-bottom: 1px solid rgba(255, 209, 179, 0.22) !important;
+          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65) !important;
+          padding: 16px 18px 24px !important;
+          gap: 8px !important;
+          max-height: calc(100vh - 64px) !important;
+          overflow-y: auto !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          transform: translateY(-12px) !important;
+          transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+          z-index: 999 !important;
+          box-sizing: border-box !important;
+        }
+
+        .site-header.nav-open .nav {
+          opacity: 1 !important;
+          pointer-events: auto !important;
+          transform: translateY(0) !important;
+        }
+
+        .site-header .nav a {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: flex-start !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+          padding: 12px 18px !important;
+          font-size: 0.95rem !important;
+          font-weight: 600 !important;
+          color: #ffffff !important;
+          background: rgba(255, 255, 255, 0.05) !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
+          border-radius: 12px !important;
+          text-decoration: none !important;
+          transition: background 0.18s ease, transform 0.15s ease, border-color 0.18s ease !important;
+        }
+
+        .site-header .nav a:hover {
+          background: rgba(180, 95, 60, 0.18) !important;
+          color: #ffd1b3 !important;
+          transform: translateX(4px) !important;
+        }
+
+        .site-header .nav a.nav-admin-btn {
+          background: linear-gradient(135deg, #b45f3c 0%, #d97749 100%) !important;
+          color: #ffffff !important;
+          font-weight: 700 !important;
+          margin-top: 6px !important;
+          border: none !important;
+          justify-content: center !important;
+        }
       }
 
       /* ── Main Container ── */
@@ -1020,22 +1161,27 @@
   </head>
 
   <body>
-    <!-- Top Luxury Navigation Bar -->
-    <header class="bk-nav">
-      <a href="./index.html" class="bk-nav-brand">
-        <div class="bk-nav-logo">CN</div>
-        <div>
-          <div class="bk-nav-title">Cloud Nandy Hills</div>
-          <div class="bk-nav-sub">Poombarai, Kodaikanal &bull; 4.8&#9733; Luxury Cabin Stay</div>
-        </div>
+    <!-- Top Navigation Bar (Same as Home Page) -->
+    <header class="site-header" id="siteHeader">
+      <a class="brand" href="./index.html" aria-label="Cloud Nandy Hills home">
+        <img src="./image.jpg" alt="Cloud Nandy Logo" class="brand-logo" />
+        <span>Cloud Nandy Hills</span>
       </a>
-
-      <div class="bk-nav-actions">
-        <a href="./index.html" class="bk-btn-back">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-          <span>Back to Stays</span>
-        </a>
-      </div>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="primaryNav">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <nav class="nav" id="primaryNav" aria-label="Primary navigation">
+        <a href="./index.html" class="nav-link" id="navHome">Home</a>
+        <a href="./index.html#rooms" class="nav-link">Rooms</a>
+        <a href="./index.html#attractions" class="nav-link">Attractions</a>
+        <a href="./index.html#services" class="nav-link">Services</a>
+        <a href="./booking.html" class="nav-link active">Booking</a>
+        <a href="./index.html#amenities" class="nav-link">Amenities</a>
+        <a href="./index.html#contact" class="nav-link">Contact Us</a>
+        <a href="./admin.html" class="nav-admin-btn">Admin Login</a>
+      </nav>
     </header>
 
     <main class="bk-wrapper">
@@ -1240,6 +1386,29 @@
     <!-- Scripts -->
     <script src="./supabase-config.js?v=7"></script>
     <script src="./lightbox.js?v=7"></script>
-    <script src="./booking2.js?v=20266"></script>
+    <script src="./booking2.js?v=20267"></script>
+    <script>
+      // ── Mobile Navigation Drawer Toggle ──
+      const siteHeader = document.getElementById("siteHeader");
+      const navToggle = document.getElementById("navToggle");
+      if (navToggle && siteHeader) {
+        navToggle.addEventListener("click", () => {
+          const isOpen = siteHeader.classList.toggle("nav-open");
+          navToggle.setAttribute("aria-expanded", String(isOpen));
+        });
+        siteHeader.querySelectorAll(".nav a").forEach((link) => {
+          link.addEventListener("click", () => {
+            siteHeader.classList.remove("nav-open");
+            navToggle.setAttribute("aria-expanded", "false");
+          });
+        });
+        document.addEventListener("click", (e) => {
+          if (!siteHeader.contains(e.target) && siteHeader.classList.contains("nav-open")) {
+            siteHeader.classList.remove("nav-open");
+            navToggle.setAttribute("aria-expanded", "false");
+          }
+        });
+      }
+    </script>
   </body>
 </html>
