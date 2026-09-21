@@ -3,13 +3,25 @@ const API_BASE = "https://cloudynandyhills.onrender.com";
 // ── Confirmed bookings — used to block already-booked rooms ─────────────────
 let confirmedBookings = [];
 
-async function fetchConfirmedBookings() {
+async function fetchConfirmedBookings(retryCount = 0) {
+  const MAX_RETRIES = 3;
   try {
     const res = await fetch(API_BASE + "/api/bookings/confirmed");
-    if (!res.ok) return;
+    if (!res.ok) throw new Error("HTTP " + res.status);
     confirmedBookings = await res.json();
   } catch (e) {
     confirmedBookings = [];
+    // Retry in background with exponential backoff (handles Render cold starts)
+    if (retryCount < MAX_RETRIES) {
+      const delay = Math.pow(3, retryCount + 1) * 1000; // 3s, 9s, 27s
+      setTimeout(async () => {
+        await fetchConfirmedBookings(retryCount + 1);
+        // Re-update book button after successful retry
+        if (confirmedBookings.length) {
+          updateBookButton();
+        }
+      }, delay);
+    }
   }
 }
 
