@@ -967,8 +967,8 @@
           total_amount: total,
         });
 
-        const MAX_RETRIES = 1;
-        const TIMEOUT_MS = 45000;
+        const MAX_RETRIES = 2;
+        const TIMEOUT_MS = 65000;
 
         let resp;
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -976,6 +976,12 @@
           const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
           try {
+            if (submitBtn) {
+              submitBtn.textContent = attempt === 0
+                ? "Connecting to payment gateway…"
+                : "Payment server waking up (attempt " + (attempt + 1) + "/3)… please wait…";
+            }
+
             resp = await fetch(API_BASE + "/api/payment/initiate", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -987,7 +993,7 @@
           } catch (fetchErr) {
             clearTimeout(timer);
             if (attempt < MAX_RETRIES) {
-              if (submitBtn) submitBtn.textContent = "Payment gateway waking up… retrying…";
+              if (submitBtn) submitBtn.textContent = "Payment gateway waking up… retrying in 3s…";
               await new Promise((r) => setTimeout(r, 3000));
               continue;
             }
@@ -996,14 +1002,48 @@
         }
 
         if (!resp.ok) {
-          const err = await resp.json().catch(() => ({ error: "Server error" }));
+          const err = await resp.json().catch(() => ({ error: "Server returned error " + resp.status }));
           throw new Error(err.error || "Could not initiate payment");
         }
 
         const html = await resp.text();
+
+        if (submitBtn) submitBtn.textContent = "Redirecting to CCAvenue…";
+
+        // Extract and submit the CCAvenue form directly in the DOM
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          const ccaForm = doc.getElementById("ccaForm") || doc.querySelector("form");
+
+          if (ccaForm && ccaForm.getAttribute("action")) {
+            const form = document.createElement("form");
+            form.method = "POST";
+            form.action = ccaForm.getAttribute("action");
+            form.style.display = "none";
+
+            ccaForm.querySelectorAll("input").forEach((inp) => {
+              const hidden = document.createElement("input");
+              hidden.type = "hidden";
+              hidden.name = inp.getAttribute("name");
+              hidden.value = inp.getAttribute("value");
+              form.appendChild(hidden);
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+            return;
+          }
+        } catch (parseErr) {
+          console.warn("DOMParser submit fallback:", parseErr);
+        }
+
+        // Direct document write fallback
         document.open();
         document.write(html);
         document.close();
+        const fallbackForm = document.getElementById("ccaForm") || document.querySelector("form");
+        if (fallbackForm) fallbackForm.submit();
       } catch (err) {
         console.error("Payment error:", err);
         if (submitBtn) {

@@ -68,19 +68,8 @@ const app = express();
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (mobile apps, curl, server-to-server)
-      // Allow "null" string origin from file:// protocol (local development)
-      // When ALLOWED_ORIGIN is "*", accept every origin.
-      if (
-        !origin ||
-        origin === "null" ||
-        ALLOWED_ORIGIN === "*" ||
-        origin === ALLOWED_ORIGIN
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
+      // Allow any origin: website (www or non-www), file:// protocol, localhost, etc.
+      callback(null, true);
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
