@@ -466,30 +466,30 @@
               <div class="bk-config-selectors">
                 <div class="bk-selector-group">
                   <label>Adults (12+ yrs)</label>
-                  <select class="bk-stepper-select" data-role="adults" data-rid="${esc(r.id)}">
-                    <option value="1" ${adultVal === 1 ? "selected" : ""}>1 Adult</option>
-                    <option value="2" ${adultVal === 2 ? "selected" : ""}>2 Adults</option>
-                    <option value="3" ${adultVal === 3 ? "selected" : ""}>3 Adults</option>
-                    <option value="4" ${adultVal === 4 ? "selected" : ""}>4 Adults</option>
-                    <option value="5" ${adultVal === 5 ? "selected" : ""}>5 Adults</option>
+                  <select class="bk-stepper-select" data-role="adults" data-rid="${esc(r.id)}" style="color-scheme:dark;">
+                    <option value="1" style="background-color:#0f1f18;color:#f1f5f9;" ${adultVal === 1 ? "selected" : ""}>1 Adult</option>
+                    <option value="2" style="background-color:#0f1f18;color:#f1f5f9;" ${adultVal === 2 ? "selected" : ""}>2 Adults</option>
+                    <option value="3" style="background-color:#0f1f18;color:#f1f5f9;" ${adultVal === 3 ? "selected" : ""}>3 Adults</option>
+                    <option value="4" style="background-color:#0f1f18;color:#f1f5f9;" ${adultVal === 4 ? "selected" : ""}>4 Adults</option>
+                    <option value="5" style="background-color:#0f1f18;color:#f1f5f9;" ${adultVal === 5 ? "selected" : ""}>5 Adults</option>
                   </select>
                 </div>
 
                 <div class="bk-selector-group">
                   <label>Children (under 12 yrs)</label>
-                  <select class="bk-stepper-select" data-role="children" data-rid="${esc(r.id)}">
-                    <option value="0" ${childVal === 0 ? "selected" : ""}>0 Children</option>
-                    <option value="1" ${childVal === 1 ? "selected" : ""}>1 Child</option>
-                    <option value="2" ${childVal === 2 ? "selected" : ""}>2 Children</option>
+                  <select class="bk-stepper-select" data-role="children" data-rid="${esc(r.id)}" style="color-scheme:dark;">
+                    <option value="0" style="background-color:#0f1f18;color:#f1f5f9;" ${childVal === 0 ? "selected" : ""}>0 Children</option>
+                    <option value="1" style="background-color:#0f1f18;color:#f1f5f9;" ${childVal === 1 ? "selected" : ""}>1 Child</option>
+                    <option value="2" style="background-color:#0f1f18;color:#f1f5f9;" ${childVal === 2 ? "selected" : ""}>2 Children</option>
                   </select>
                 </div>
 
                 <div class="bk-selector-group">
                   <label>Extra Bed / Mattress</label>
-                  <select class="bk-stepper-select" data-role="extra" data-rid="${esc(r.id)}">
-                    <option value="0" ${extraVal === 0 ? "selected" : ""}>None</option>
-                    <option value="1" ${extraVal === 1 ? "selected" : ""}>1 Extra Bed</option>
-                    <option value="2" ${extraVal === 2 ? "selected" : ""}>2 Extra Beds</option>
+                  <select class="bk-stepper-select" data-role="extra" data-rid="${esc(r.id)}" style="color-scheme:dark;">
+                    <option value="0" style="background-color:#0f1f18;color:#f1f5f9;" ${extraVal === 0 ? "selected" : ""}>None</option>
+                    <option value="1" style="background-color:#0f1f18;color:#f1f5f9;" ${extraVal === 1 ? "selected" : ""}>1 Extra Bed</option>
+                    <option value="2" style="background-color:#0f1f18;color:#f1f5f9;" ${extraVal === 2 ? "selected" : ""}>2 Extra Beds</option>
                   </select>
                 </div>
               </div>

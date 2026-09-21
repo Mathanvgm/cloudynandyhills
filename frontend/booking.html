@@ -591,6 +591,27 @@
         border-color: var(--accent);
       }
 
+      /* Native select options styling for high contrast in dark mode */
+      select option,
+      .bk-stepper-select option,
+      .bk-sort-dropdown option,
+      .bk-input-text option {
+        background-color: #0f1f18 !important;
+        color: #f1f5f9 !important;
+        font-family: inherit;
+        font-size: 0.95rem;
+        font-weight: 600;
+        padding: 10px 14px;
+      }
+
+      select option:hover,
+      select option:focus,
+      select option:checked,
+      .bk-stepper-select option:checked {
+        background-color: #1e3a2f !important;
+        color: #ffd1b3 !important;
+      }
+
       /* Card Footer Action */
       .bk-card-footer {
         display: flex;
@@ -1069,10 +1090,10 @@
         <div style="display:flex;align-items:center;gap:12px;">
           <span class="bk-results-count" id="bkResultsCount"></span>
           <select id="bkSortSelect" class="bk-sort-dropdown" aria-label="Sort stays">
-            <option value="default">Featured</option>
-            <option value="price-asc">Price: Low to High</option>
-            <option value="price-desc">Price: High to Low</option>
-            <option value="name-asc">Stay Name: A to Z</option>
+            <option value="default" style="background-color:#0f1f18;color:#f1f5f9;">Featured</option>
+            <option value="price-asc" style="background-color:#0f1f18;color:#f1f5f9;">Price: Low to High</option>
+            <option value="price-desc" style="background-color:#0f1f18;color:#f1f5f9;">Price: High to Low</option>
+            <option value="name-asc" style="background-color:#0f1f18;color:#f1f5f9;">Stay Name: A to Z</option>
           </select>
         </div>
       </div>
@@ -1145,11 +1166,11 @@
               <div class="bk-field-group">
                 <label>Guest Title &amp; Full Name *</label>
                 <div style="display:flex;gap:10px;">
-                  <select id="bkTitle" class="bk-input-text" style="flex:0 0 90px;">
-                    <option>Mr</option>
-                    <option>Mrs</option>
-                    <option>Ms</option>
-                    <option>Dr</option>
+                  <select id="bkTitle" class="bk-input-text" style="flex:0 0 90px;color-scheme:dark;">
+                    <option style="background-color:#0f1f18;color:#f1f5f9;">Mr</option>
+                    <option style="background-color:#0f1f18;color:#f1f5f9;">Mrs</option>
+                    <option style="background-color:#0f1f18;color:#f1f5f9;">Ms</option>
+                    <option style="background-color:#0f1f18;color:#f1f5f9;">Dr</option>
                   </select>
                   <input type="text" id="bkName" class="bk-input-text" placeholder="e.g. Rahul Sharma" style="flex:1;" required />
                 </div>
@@ -1219,6 +1240,6 @@
     <!-- Scripts -->
     <script src="./supabase-config.js?v=7"></script>
     <script src="./lightbox.js?v=7"></script>
-    <script src="./booking2.js?v=20264"></script>
+    <script src="./booking2.js?v=20265"></script>
   </body>
 </html>
