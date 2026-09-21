@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 const { createClient } = require("@supabase/supabase-js");
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -20,6 +21,10 @@ const {
   CCAVENUE_REDIRECT_DOMAIN,
   BACKEND_URL,
   FRONTEND_URL,
+  // Email (Gmail SMTP) — set these in Render env vars
+  EMAIL_USER,    // your Gmail address e.g. stay@cloudnandyhills.com
+  EMAIL_PASS,    // Gmail App Password (not your regular password)
+  EMAIL_FROM = "Cloud Nandy Hills <stay@cloudnandyhills.com>",
 } = process.env;
 
 // PORT must come directly from process.env — Render injects its own PORT value
@@ -141,6 +146,102 @@ const uploadFileToStorage = async (file) => {
 
 const sendError = (res, status, message) =>
   res.status(status).json({ error: message });
+
+// ─── Email Helper ─────────────────────────────────────────────────────────────
+
+/**
+ * Send booking confirmation email to guest.
+ * Requires EMAIL_USER and EMAIL_PASS env vars (Gmail App Password).
+ * Silently skips if credentials are not set or guest has no email.
+ */
+async function sendBookingEmail({ name, email, phone, room, check_in, check_out, adults, children, amount, orderId, tracking }) {
+  if (!EMAIL_USER || !EMAIL_PASS || !email) return;
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+  });
+
+  const fmt = (d) => d ? d.split("-").reverse().join(" ") : "—";
+  const fmtAmt = (v) => v ? "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—";
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0ede8;font-family:Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0ede8;padding:32px 16px">
+<tr><td align="center">
+  <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
+    <!-- Header -->
+    <tr><td style="background:#17211d;border-radius:16px 16px 0 0;padding:24px 32px">
+      <span style="font-size:20px;font-weight:800;color:#fff">&#9729; Cloud Nandy Hills</span><br>
+      <span style="font-size:13px;color:#9ca3af">Poombarai, Kodaikanal &middot; Tamil Nadu</span>
+    </td></tr>
+    <!-- Green Banner -->
+    <tr><td style="background:#16a34a;padding:20px 32px;text-align:center">
+      <div style="font-size:32px">&#10003;</div>
+      <div style="font-size:22px;font-weight:800;color:#fff;margin-top:6px">Booking Confirmed!</div>
+      <div style="font-size:13px;color:#dcfce7;margin-top:6px">Your stay is secured. We look forward to welcoming you!</div>
+    </td></tr>
+    <!-- Body -->
+    <tr><td style="background:#fff;padding:28px 32px">
+      <p style="color:#374151;font-size:15px;margin:0 0 20px">Dear <strong>${name}</strong>,</p>
+      <p style="color:#6b7280;font-size:14px;margin:0 0 24px;line-height:1.6">
+        Your booking at Cloud Nandy Hills has been <strong style="color:#16a34a">confirmed</strong>.
+        Your booking reference is <strong>${orderId}</strong>. Please save this email for your records.
+      </p>
+      <!-- Details Table -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:24px">
+        <tr style="background:#f9fafb"><td style="padding:11px 16px;font-size:13px;color:#6b7280;font-weight:500;border-bottom:1px solid #e5e7eb">Booking Reference</td><td style="padding:11px 16px;font-size:13px;color:#1a1a1a;font-weight:700;text-align:right;border-bottom:1px solid #e5e7eb">${orderId}</td></tr>
+        <tr><td style="padding:11px 16px;font-size:13px;color:#6b7280;font-weight:500;border-bottom:1px solid #e5e7eb">Room / Cabin</td><td style="padding:11px 16px;font-size:13px;color:#1a1a1a;font-weight:700;text-align:right;border-bottom:1px solid #e5e7eb">${room}</td></tr>
+        <tr style="background:#f9fafb"><td style="padding:11px 16px;font-size:13px;color:#6b7280;font-weight:500;border-bottom:1px solid #e5e7eb">Check-In</td><td style="padding:11px 16px;font-size:13px;color:#1a1a1a;font-weight:700;text-align:right;border-bottom:1px solid #e5e7eb">${fmt(check_in)} at 1:00 PM</td></tr>
+        <tr><td style="padding:11px 16px;font-size:13px;color:#6b7280;font-weight:500;border-bottom:1px solid #e5e7eb">Check-Out</td><td style="padding:11px 16px;font-size:13px;color:#1a1a1a;font-weight:700;text-align:right;border-bottom:1px solid #e5e7eb">${fmt(check_out)} at 11:00 AM</td></tr>
+        <tr style="background:#f9fafb"><td style="padding:11px 16px;font-size:13px;color:#6b7280;font-weight:500;border-bottom:1px solid #e5e7eb">Guests</td><td style="padding:11px 16px;font-size:13px;color:#1a1a1a;font-weight:700;text-align:right;border-bottom:1px solid #e5e7eb">${adults || 1} Adult${(adults || 1) > 1 ? "s" : ""}${children > 0 ? ", " + children + " Child" : ""}</td></tr>
+        <tr><td style="padding:11px 16px;font-size:13px;color:#6b7280;font-weight:500;border-bottom:1px solid #e5e7eb">Amount Paid</td><td style="padding:11px 16px;font-size:13px;color:#16a34a;font-weight:700;text-align:right;border-bottom:1px solid #e5e7eb">${fmtAmt(amount)}</td></tr>
+        ${tracking ? `<tr style="background:#f9fafb"><td style="padding:11px 16px;font-size:13px;color:#6b7280;font-weight:500">Tracking ID</td><td style="padding:11px 16px;font-size:13px;color:#1a1a1a;font-weight:700;text-align:right">${tracking}</td></tr>` : ""}
+      </table>
+      <!-- Policies -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff8f0;border-left:3px solid #b45f3c;border-radius:0 8px 8px 0;margin-bottom:24px">
+        <tr><td style="padding:14px 16px;font-size:13px;color:#7a4a2c;line-height:1.6">
+          <strong>Property Policies</strong><br>
+          &bull; Check-in: 1:00 PM &nbsp;&nbsp; Check-out: 11:00 AM<br>
+          &bull; Please carry a valid government-issued photo ID at check-in.<br>
+          &bull; Our team will contact you at <strong>${phone}</strong> with arrival details.
+        </td></tr>
+      </table>
+      <p style="color:#6b7280;font-size:13px;margin:0;line-height:1.6">
+        For any queries, contact us at <a href="tel:+919095744759" style="color:#b45f3c;text-decoration:none">090957 44759</a> or reply to this email.
+      </p>
+    </td></tr>
+    <!-- Footer -->
+    <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;border-radius:0 0 16px 16px;padding:18px 32px;text-align:center">
+      <p style="color:#9ca3af;font-size:12px;margin:0">
+        Cloud Nandy Hills &nbsp;&middot;&nbsp; No.5/166, Kochakanal Street, Poombarai, Kodaikanal, Tamil Nadu 624103<br>
+        <a href="https://www.cloudynandyhills.com" style="color:#b45f3c;text-decoration:none">www.cloudynandyhills.com</a>
+      </p>
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>`;
+
+  try {
+    await transporter.sendMail({
+      from: EMAIL_FROM,
+      to: email,
+      subject: `Booking Confirmed – ${room} | Cloud Nandy Hills (${orderId})`,
+      html,
+    });
+    console.log(`✉ Confirmation email sent to ${email} for booking ${orderId}`);
+  } catch (err) {
+    console.error("Email send error:", err.message);
+    // Non-fatal — don't break the payment flow
+  }
+}
+
+
 
 // ─── CCAvenue Crypto Helpers ──────────────────────────────────────────────────
 
@@ -615,6 +716,32 @@ app.post("/api/payment/return", express.urlencoded({ extended: false }), async (
     } else {
       console.log(`Booking ${orderId} updated to ${dbStatus}`);
     }
+
+    // Send confirmation email to guest on success (non-blocking)
+    if (ccaStatus === "success") {
+      const { data: bookingRows } = await supabase
+        .from("bookings")
+        .select("name,email,phone,room,check_in,check_out,adults,children,total_amount")
+        .eq("order_id", orderId)
+        .limit(1);
+
+      if (bookingRows && bookingRows[0]) {
+        const b = bookingRows[0];
+        sendBookingEmail({
+          name:      b.name,
+          email:     b.email,
+          phone:     b.phone,
+          room:      b.room,
+          check_in:  b.check_in,
+          check_out: b.check_out,
+          adults:    b.adults,
+          children:  b.children,
+          amount:    amount || b.total_amount,
+          orderId,
+          tracking:  trackingId,
+        }).catch(err => console.error("Email fire error:", err.message));
+      }
+    }
   }
 
   // Redirect to frontend payment result page
@@ -628,6 +755,7 @@ app.post("/api/payment/return", express.urlencoded({ extended: false }), async (
   return res.redirect(
     `${PAYMENT_RETURN_BASE}/payment-return.html?${params.toString()}`
   );
+
 });
 
 // ─── Global error handler ─────────────────────────────────────────────────────
