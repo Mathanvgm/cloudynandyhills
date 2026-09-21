@@ -1124,6 +1124,24 @@
           <div class="bk-modal-body">
             <!-- Left: Guest Information Fields -->
             <div>
+              <!-- Check-In & Check-Out Dates -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                <div class="bk-field-group" style="margin-bottom:0;">
+                  <label for="bkModalCheckIn" style="display:flex;align-items:center;gap:6px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Check-In Date *
+                  </label>
+                  <input type="date" id="bkModalCheckIn" class="bk-input-text" style="color-scheme:dark;width:100%;cursor:pointer;" required />
+                </div>
+                <div class="bk-field-group" style="margin-bottom:0;">
+                  <label for="bkModalCheckOut" style="display:flex;align-items:center;gap:6px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Check-Out Date *
+                  </label>
+                  <input type="date" id="bkModalCheckOut" class="bk-input-text" style="color-scheme:dark;width:100%;cursor:pointer;" required />
+                </div>
+              </div>
+
               <div class="bk-field-group">
                 <label>Guest Title &amp; Full Name *</label>
                 <div style="display:flex;gap:10px;">
@@ -1201,6 +1219,6 @@
     <!-- Scripts -->
     <script src="./supabase-config.js?v=7"></script>
     <script src="./lightbox.js?v=7"></script>
-    <script src="./booking2.js?v=20263"></script>
+    <script src="./booking2.js?v=20264"></script>
   </body>
 </html>

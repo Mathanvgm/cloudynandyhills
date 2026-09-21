@@ -152,29 +152,48 @@
 
       const tdStyle = 'style="padding:14px 16px;vertical-align:middle;' + borderStyle + 'background:' + bg + ';white-space:nowrap;"';
 
+      const nightsCount = (b.check_in && b.check_out)
+        ? Math.max(Math.round((new Date(b.check_out + "T00:00:00") - new Date(b.check_in + "T00:00:00")) / 86400000), 1)
+        : 1;
+
+      const guestsStr = (b.adults ? (b.adults + " Adult" + (b.adults > 1 ? "s" : "")) : "") +
+        (b.children ? (", " + b.children + " Child" + (b.children > 1 ? "ren" : "")) : "") ||
+        b.guests || b.num_guests || "1 Adult";
+
       return (
-        '<tr>' +
-        // 1. Guest Name + avatar (natural word wrap, never broken mid-word)
+        '<tr class="bk-booking-row" data-id="' + esc(b.id) + '" style="cursor:pointer;">' +
+        // 1. Guest Name + avatar + email
         '<td style="padding:14px 16px;vertical-align:middle;' + borderStyle + 'background:' + bg + ';min-width:190px;max-width:240px;white-space:normal;">' +
           '<div style="display:flex;align-items:center;gap:11px;">' +
             '<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#b45f3c,#9a4f32);color:#fff;font-size:0.76rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-transform:uppercase;box-shadow:0 2px 5px rgba(180,95,60,0.22);">' + esc(initials) + '</div>' +
-            '<span style="font-weight:700;color:#0f172a;font-size:0.88rem;line-height:1.35;word-break:normal;overflow-wrap:normal;">' + esc(b.name) + '</span>' +
+            '<div>' +
+              '<span style="font-weight:700;color:#0f172a;font-size:0.88rem;line-height:1.35;word-break:normal;overflow-wrap:normal;display:block;">' + esc(b.name) + '</span>' +
+              (b.email ? '<span style="font-size:0.75rem;color:#64748b;display:block;margin-top:2px;">' + esc(b.email) + '</span>' : '') +
+            '</div>' +
           '</div>' +
         '</td>' +
         // 2. Status
         '<td ' + tdStyle + '>' + badgeHtml + '</td>' +
-        // 3. Room
-        '<td style="padding:14px 16px;vertical-align:middle;' + borderStyle + 'background:' + bg + ';min-width:170px;max-width:220px;white-space:normal;line-height:1.35;"><span style="font-weight:600;color:#1e293b;font-size:0.85rem;">' + esc(b.room) + '</span></td>' +
-        // 4. Dates (Up and down)
+        // 3. Room & Guests
+        '<td style="padding:14px 16px;vertical-align:middle;' + borderStyle + 'background:' + bg + ';min-width:170px;max-width:220px;white-space:normal;line-height:1.35;">' +
+          '<span style="font-weight:700;color:#1e293b;font-size:0.85rem;display:block;">' + esc(b.room) + '</span>' +
+          '<span style="font-size:0.75rem;color:#64748b;display:block;margin-top:2px;">' + esc(guestsStr) + '</span>' +
+        '</td>' +
+        // 4. Dates & Duration (Up and down)
         '<td ' + tdStyle + '>' +
-          '<div style="display:flex;flex-direction:column;gap:4px;white-space:nowrap;">' +
+          '<div style="display:flex;flex-direction:column;gap:3px;white-space:nowrap;">' +
             '<div style="display:flex;align-items:center;gap:6px;">' +
               '<span style="font-size:0.62rem;font-weight:800;padding:2px 5px;border-radius:4px;background:#e2e8f0;color:#475569;letter-spacing:0.03em;">IN</span>' +
-              '<span style="font-size:0.82rem;font-weight:600;color:#0f172a;">' + fmtD(b.check_in) + '</span>' +
+              '<span style="font-size:0.82rem;font-weight:700;color:#0f172a;">' + fmtD(b.check_in) + '</span>' +
             '</div>' +
             '<div style="display:flex;align-items:center;gap:6px;">' +
               '<span style="font-size:0.62rem;font-weight:800;padding:2px 5px;border-radius:4px;background:#fef3c7;color:#92400e;letter-spacing:0.03em;">OUT</span>' +
-              '<span style="font-size:0.82rem;font-weight:600;color:#64748b;">' + fmtD(b.check_out) + '</span>' +
+              '<span style="font-size:0.82rem;font-weight:700;color:#64748b;">' + fmtD(b.check_out) + '</span>' +
+            '</div>' +
+            '<div style="margin-top:2px;">' +
+              '<span style="font-size:0.68rem;font-weight:700;color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;padding:1px 6px;border-radius:4px;display:inline-block;">' +
+                nightsCount + (nightsCount === 1 ? ' Night' : ' Nights') +
+              '</span>' +
             '</div>' +
           '</div>' +
         '</td>' +
@@ -189,7 +208,7 @@
             '<span style="font-size:0.74rem;color:#94a3b8;">' + bookedTime + '</span>' +
           '</div>' +
         '</td>' +
-        // 8. Actions (3-dot button only)
+        // 8. Actions (3-dot button)
         '<td style="padding:14px 16px;vertical-align:middle;text-align:center;width:70px;' + borderStyle + 'background:' + bg + ';">' +
           dotsBtn +
         '</td>' +
@@ -203,6 +222,15 @@
         e.stopPropagation();
         const booking = allBookings.find(function (b) { return String(b.id) === String(btn.dataset.id); });
         if (booking) toggleActionMenu(btn, booking);
+      });
+    });
+
+    // Row click to open full details modal
+    bookingsTbody.querySelectorAll(".bk-booking-row").forEach(function (tr) {
+      tr.addEventListener("click", function (e) {
+        if (e.target.closest(".bk-dots-btn") || e.target.closest("#bkActionDropdown")) return;
+        const booking = allBookings.find(function (b) { return String(b.id) === String(tr.dataset.id); });
+        if (booking) openBookingModal(booking);
       });
     });
   }
@@ -570,6 +598,16 @@
       );
     };
 
+    const nights = (b.check_in && b.check_out)
+      ? Math.max(Math.round((new Date(b.check_out + "T00:00:00") - new Date(b.check_in + "T00:00:00")) / 86400000), 1)
+      : 1;
+
+    const guestsDisplay = (b.adults ? b.adults + " Adult" + (b.adults > 1 ? "s" : "") : "") +
+      (b.children ? (", " + b.children + " Child" + (b.children > 1 ? "ren" : "")) : "") ||
+      b.guests || b.num_guests || "1 Adult";
+
+    const specialReqs = b.requests || b.special_requests || b.notes || b.message || "";
+
     const html =
       // Status banner — read-only (no inline changer in modal)
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:' + s.bg + ';border-radius:10px;margin-bottom:22px;flex-wrap:wrap;gap:12px;">' +
@@ -591,7 +629,7 @@
         field("Full Name", b.name) +
         field("Phone", b.phone) +
         field("Email", b.email) +
-        field("Guests", b.guests || b.num_guests || "—") +
+        field("Guests", guestsDisplay) +
       '</div>' +
 
       // Booking details section
@@ -601,16 +639,17 @@
         field("Amount Paid", formatCurrency(b.total_amount)) +
         field("Check-In", fmtD(b.check_in)) +
         field("Check-Out", fmtD(b.check_out)) +
+        field("Duration", nights + (nights === 1 ? " Night" : " Nights")) +
         field("Booked At", bookedAt) +
+        field("Order ID", b.order_id || "—") +
         field("Booking ID", b.id) +
       '</div>' +
 
       // Special requests
-      (b.special_requests || b.notes || b.message
-        ? '<p style="margin:0 0 12px;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#b45f3c;">Special Requests</p>' +
-          '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;font-size:0.88rem;color:#475569;line-height:1.6;">' +
-          esc(b.special_requests || b.notes || b.message) + '</div>'
-        : '');
+      '<p style="margin:0 0 12px;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#b45f3c;">Special Requests</p>' +
+      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;font-size:0.88rem;color:' + (specialReqs ? '#1e293b' : '#94a3b8') + ';line-height:1.6;margin-bottom:12px;">' +
+        esc(specialReqs || "None provided.") +
+      '</div>';
 
     if (modalBody) modalBody.innerHTML = html;
 
@@ -745,21 +784,31 @@
     row("Full Name",  b.name,  false);
     row("Phone",      b.phone, true);
     row("Email",      b.email, false);
-    if (b.guests || b.num_guests) row("Guests", b.guests || b.num_guests, true);
+    const gVal = (b.adults ? b.adults + " Adult" + (b.adults > 1 ? "s" : "") : "") +
+      (b.children ? ", " + b.children + " Child" + (b.children > 1 ? "ren" : "") : "") ||
+      b.guests || b.num_guests || "1 Adult";
+    row("Guests", gVal, true);
     y += 10;
 
     // ── Booking Information ──
+    const nights = (b.check_in && b.check_out)
+      ? Math.max(Math.round((new Date(b.check_out + "T00:00:00") - new Date(b.check_in + "T00:00:00")) / 86400000), 1)
+      : 1;
+
     sectionTitle("Booking Information");
     row("Room / Property", b.room,                         false);
     row("Check-In",        fmtD(b.check_in),               true);
     row("Check-Out",       fmtD(b.check_out),              false);
-    row("Total Amount",    formatCurrency(b.total_amount), true);
+    row("Duration",        nights + (nights === 1 ? " Night" : " Nights"), true);
+    row("Total Amount",    formatCurrency(b.total_amount), false);
+    if (b.order_id) row("Order ID", b.order_id,            true);
     y += 10;
 
     // ── Special requests ──
-    if (b.special_requests || b.notes || b.message) {
+    const reqText = b.requests || b.special_requests || b.notes || b.message;
+    if (reqText) {
       sectionTitle("Special Requests");
-      const text = safe(b.special_requests || b.notes || b.message);
+      const text = safe(reqText);
       const lines = doc.splitTextToSize(text, contentW - 12);
       doc.setFillColor(248, 250, 252);
       doc.rect(margin, y - 11, contentW, lines.length * 14 + 16, "F");

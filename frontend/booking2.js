@@ -117,16 +117,23 @@
     }
   }
 
-  function isRoomBlocked(roomName) {
-    if (!ci || !co || !ci.value || !co.value) return false;
-    const selIn = new Date(ci.value + "T00:00:00");
-    const selOut = new Date(co.value + "T00:00:00");
+  function isRoomBlockedForDates(roomName, inVal, outVal) {
+    if (!inVal || !outVal) return false;
+    const selIn = new Date(inVal + "T00:00:00");
+    const selOut = new Date(outVal + "T00:00:00");
+    if (isNaN(selIn) || isNaN(selOut) || selOut <= selIn) return false;
     return confirmedBookings.some((b) => {
       if ((b.room || "").trim().toLowerCase() !== (roomName || "").trim().toLowerCase()) return false;
       const bIn = new Date(b.check_in + "T00:00:00");
       const bOut = new Date(b.check_out + "T00:00:00");
       return bIn < selOut && bOut > selIn;
     });
+  }
+
+  function isRoomBlocked(roomName) {
+    const inVal = ci ? ci.value : "";
+    const outVal = co ? co.value : "";
+    return isRoomBlockedForDates(roomName, inVal, outVal);
   }
 
   // ── Gallery Auto-Scroll & Controls ───────────────────────────────────────────
@@ -717,32 +724,40 @@
   }
 
   // ── Checkout Modal Functions ─────────────────────────────────────────────────
-  function openCheckout() {
-    if (!cart) return;
-    const n = nights();
+  function updateCheckoutModalSummary() {
+    if (!cart) return null;
+    const modalCi = $("bkModalCheckIn");
+    const modalCo = $("bkModalCheckOut");
+    const inVal = (modalCi && modalCi.value) || (ci && ci.value);
+    const outVal = (modalCo && modalCo.value) || (co && co.value);
+
+    const s = new Date(inVal + "T00:00:00");
+    const e = new Date(outVal + "T00:00:00");
+    const n = Math.max(Math.round((e - s) / 86400000), 1);
+
     const incRate = cart.incRate;
     const excRate = incRate / 1.05;
 
     const extraChildInc = Math.round(incRate * 0.2);
     const extraChildExc = extraChildInc / 1.05;
-    const extraChildCostExc = extraChildExc * cart.children;
+    const extraChildCostExc = extraChildExc * (cart.children || 0);
 
     const roomRentExc = (excRate + extraChildCostExc) * n;
     const tax = roomRentExc * 0.05;
     const exact = roomRentExc + tax;
     const total = Math.round(exact);
 
-    // Hidden form inputs
+    // Sync hidden form inputs
     if ($("bkRoom")) $("bkRoom").value = cart.name;
-    if ($("bkCheckIn")) $("bkCheckIn").value = ci.value;
-    if ($("bkCheckOut")) $("bkCheckOut").value = co.value;
+    if ($("bkCheckIn")) $("bkCheckIn").value = inVal;
+    if ($("bkCheckOut")) $("bkCheckOut").value = outVal;
     if ($("bkAdults")) $("bkAdults").value = cart.adults;
     if ($("bkChildren")) $("bkChildren").value = cart.children;
 
     // Date formatting: DD-MM-YYYY
-    const fmtDate = (v) => v.split("-").reverse().join("-");
-    const cinD = fmtDate(ci.value);
-    const coutD = fmtDate(co.value);
+    const fmtDate = (v) => (v ? v.split("-").reverse().join("-") : "--");
+    const cinD = fmtDate(inVal);
+    const coutD = fmtDate(outVal);
 
     // Update modal summary card
     if ($("ckCinVal")) $("ckCinVal").textContent = cinD;
@@ -756,6 +771,47 @@
         (cart.extra > 0 ? ` &bull; ${cart.extra} Extra Bed` : "");
     }
     if ($("ckSumRoomPrice")) $("ckSumRoomPrice").textContent = "₹" + total.toLocaleString("en-IN") + ".00";
+
+    // Check availability for these dates
+    const submitBtn = $("bkSubmitBtn") || (bkForm && bkForm.querySelector("button[type='submit']"));
+    const msg = $("bkFormMsg");
+    const blocked = isRoomBlockedForDates(cart.name, inVal, outVal);
+
+    if (blocked) {
+      if (msg) {
+        msg.style.display = "block";
+        msg.className = "bk-msg error";
+        msg.textContent = "This cabin is already booked for the selected dates. Please choose different dates.";
+      }
+      if (submitBtn) submitBtn.disabled = true;
+    } else {
+      if (msg && msg.textContent.includes("already booked")) {
+        msg.style.display = "none";
+        msg.textContent = "";
+      }
+      if (submitBtn) submitBtn.disabled = false;
+    }
+
+    return { n, total, inVal, outVal };
+  }
+
+  function openCheckout() {
+    if (!cart) return;
+
+    const modalCi = $("bkModalCheckIn");
+    const modalCo = $("bkModalCheckOut");
+
+    if (modalCi && ci) {
+      modalCi.min = toVal(today);
+      modalCi.value = ci.value || toVal(addDay(today, 1));
+    }
+    if (modalCo && co && ci) {
+      const s = new Date((ci.value || toVal(addDay(today, 1))) + "T00:00:00");
+      modalCo.min = toVal(addDay(s, 1));
+      modalCo.value = co.value || toVal(addDay(today, 2));
+    }
+
+    updateCheckoutModalSummary();
 
     const overlay = $("bkOverlay");
     if (overlay) {
@@ -786,6 +842,36 @@
     if (e.key === "Escape") closeCheckout();
   });
 
+  // Modal Date Change Listeners
+  const modalCi = $("bkModalCheckIn");
+  const modalCo = $("bkModalCheckOut");
+
+  if (modalCi) {
+    modalCi.addEventListener("change", () => {
+      if (ci) ci.value = modalCi.value;
+      const s = new Date(modalCi.value + "T00:00:00");
+      if (modalCo) {
+        modalCo.min = toVal(addDay(s, 1));
+        if (new Date(modalCo.value + "T00:00:00") <= s) {
+          modalCo.value = toVal(addDay(s, 1));
+          if (co) co.value = modalCo.value;
+        }
+      }
+      updateNightsBadge();
+      renderSidebar();
+      updateCheckoutModalSummary();
+    });
+  }
+
+  if (modalCo) {
+    modalCo.addEventListener("change", () => {
+      if (co) co.value = modalCo.value;
+      updateNightsBadge();
+      renderSidebar();
+      updateCheckoutModalSummary();
+    });
+  }
+
   // ── Form Submit — CCAvenue Payment ────────────────────────────────────────
   const bkForm = $("bkForm");
   if (bkForm) {
@@ -793,22 +879,48 @@
       e.preventDefault();
       if (!cart) return;
 
-      const n = nights();
+      const modalCheckInEl = $("bkModalCheckIn");
+      const modalCheckOutEl = $("bkModalCheckOut");
+      const check_in = (modalCheckInEl && modalCheckInEl.value) || (ci && ci.value);
+      const check_out = (modalCheckOutEl && modalCheckOutEl.value) || (co && co.value);
+
+      if (!check_in || !check_out) {
+        const msg = $("bkFormMsg");
+        msg.style.display = "block";
+        msg.className = "bk-msg error";
+        msg.textContent = "Please select both check-in and check-out dates.";
+        return;
+      }
+
+      if (isRoomBlockedForDates(cart.name, check_in, check_out)) {
+        const msg = $("bkFormMsg");
+        msg.style.display = "block";
+        msg.className = "bk-msg error";
+        msg.textContent = "This cabin is already booked for these dates. Please choose different dates.";
+        return;
+      }
+
+      const s = new Date(check_in + "T00:00:00");
+      const eDate = new Date(check_out + "T00:00:00");
+      const n = Math.max(Math.round((eDate - s) / 86400000), 1);
+
       const incRate = cart.incRate;
       const excRate = incRate / 1.05;
       const extraChildInc = Math.round(incRate * 0.2);
       const extraChildExc = extraChildInc / 1.05;
-      const extraChildCostExc = extraChildExc * cart.children;
+      const extraChildCostExc = extraChildExc * (cart.children || 0);
       const roomRentExc = (excRate + extraChildCostExc) * n;
       const tax = roomRentExc * 0.05;
       const total = Math.round(roomRentExc + tax);
 
-      const name = $("bkName").value.trim();
+      const titleVal = $("bkTitle") ? $("bkTitle").value : "";
+      const rawName = $("bkName").value.trim();
+      const name = titleVal ? `${titleVal}. ${rawName}` : rawName;
       const email = $("bkEmail").value.trim();
       const phone = $("bkPhone").value.trim();
       const requests = $("bkRequests") ? $("bkRequests").value.trim() : "";
 
-      if (!name || !phone) {
+      if (!rawName || !phone) {
         const msg = $("bkFormMsg");
         msg.style.display = "block";
         msg.className = "bk-msg error";
@@ -832,11 +944,12 @@
           email,
           phone,
           room: cart.name,
-          check_in: ci.value,
-          check_out: co.value,
+          check_in,
+          check_out,
           adults: cart.adults,
           children: cart.children,
           requests,
+          total_amount: total,
         })
       );
 
@@ -846,8 +959,8 @@
           email,
           phone,
           room: cart.name,
-          check_in: ci.value,
-          check_out: co.value,
+          check_in,
+          check_out,
           adults: cart.adults,
           children: cart.children,
           requests,
