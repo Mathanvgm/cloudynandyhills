@@ -31,6 +31,7 @@
   if (paramGuests && rc) {
     rc.value = paramGuests;
   }
+  let selectedRoomFilter = urlParams.get("room") || null;
 
   if (ci) {
     ci.min = toVal(today);
@@ -221,6 +222,8 @@
       return;
     }
 
+    const defaultAdults = (paramGuests && Number(paramGuests) >= 1 && Number(paramGuests) <= 5) ? Number(paramGuests) : 2;
+
     list.innerHTML = rooms.map((r, i) => {
       const inCart  = cart && cart.id === r.id;
       const blocked = isRoomBlocked(r.name);
@@ -244,15 +247,19 @@
         <button class="bk-slider-btn prev" data-sid="${i}" aria-label="Prev">&#10094;</button>
         <button class="bk-slider-btn next" data-sid="${i}" aria-label="Next">&#10095;</button>` : "";
 
-      // Book button: blocked = "Booked" button, inCart = "Added", else normal button
+      // Reserve button: blocked = "Booked", inCart = "Reserve Now", else "Reserve Room"
       const bookBtn = blocked
-        ? `<button class="bk-book-btn is-booked" disabled style="background:#f1f5f9;color:#94a3b8;border:1px solid #cbd5e1;cursor:not-allowed;display:inline-flex;align-items:center;gap:5px;box-shadow:none;padding:5px 14px;font-size:0.82rem;font-weight:700;border-radius:4px;">
+        ? `<button class="bk-book-btn is-booked" disabled style="background:#f1f5f9;color:#94a3b8;border:1px solid #cbd5e1;cursor:not-allowed;display:inline-flex;align-items:center;gap:5px;box-shadow:none;padding:6px 16px;font-size:0.82rem;font-weight:700;border-radius:4px;">
              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
              Booked
            </button>`
-        : inCart
-        ? `<span style="color:#b45f3c;font-weight:700;font-size:0.82rem;">Added</span>`
-        : `<button class="bk-book-btn" data-rid="${esc(r.id)}">Book Room</button>`;
+        : `<button class="bk-book-btn" data-rid="${esc(r.id)}" style="background:#b45f3c;color:#fff;border:none;padding:8px 20px;font-weight:700;border-radius:6px;cursor:pointer;font-size:0.88rem;box-shadow:0 3px 10px rgba(180,95,60,0.3);letter-spacing:0.02em;">
+             Reserve Room
+           </button>`;
+
+      const adultVal = inCart ? cart.adults : defaultAdults;
+      const childVal = inCart ? cart.children : 0;
+      const extraVal = inCart ? cart.extra : 0;
 
       return `
         <div class="bk-room-card" id="card-${esc(r.id)}">
@@ -333,23 +340,25 @@
                       <td>1</td>
                       <td>
                         <select class="bk-config-select" data-role="adults" data-rid="${esc(r.id)}">
-                          <option value="1">1</option>
-                          <option value="2" selected>2</option>
-                          <option value="3">3</option>
+                          <option value="1" ${adultVal === 1 ? 'selected' : ''}>1</option>
+                          <option value="2" ${adultVal === 2 ? 'selected' : ''}>2</option>
+                          <option value="3" ${adultVal === 3 ? 'selected' : ''}>3</option>
+                          <option value="4" ${adultVal === 4 ? 'selected' : ''}>4</option>
+                          <option value="5" ${adultVal === 5 ? 'selected' : ''}>5</option>
                         </select>
                       </td>
                       <td>
                         <select class="bk-config-select" data-role="children" data-rid="${esc(r.id)}">
-                          <option value="0" selected>0</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
+                          <option value="0" ${childVal === 0 ? 'selected' : ''}>0</option>
+                          <option value="1" ${childVal === 1 ? 'selected' : ''}>1</option>
+                          <option value="2" ${childVal === 2 ? 'selected' : ''}>2</option>
                         </select>
                       </td>
                       <td>
                         <select class="bk-config-select" data-role="extra" data-rid="${esc(r.id)}">
-                          <option value="0" selected>0</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
+                          <option value="0" ${extraVal === 0 ? 'selected' : ''}>0</option>
+                          <option value="1" ${extraVal === 1 ? 'selected' : ''}>1</option>
+                          <option value="2" ${extraVal === 2 ? 'selected' : ''}>2</option>
                         </select>
                       </td>
                     </tr>
@@ -413,12 +422,13 @@
           id: rid,
           name: room.name,
           incRate: room.price,
-          adults: Number(cfg_tbl.querySelector('[data-role="adults"]').value),
-          children: Number(cfg_tbl.querySelector('[data-role="children"]').value),
-          extra: parseInt(cfg_tbl.querySelector('[data-role="extra"]').value, 10),
+          adults: Number(cfg_tbl ? cfg_tbl.querySelector('[data-role="adults"]').value : defaultAdults),
+          children: Number(cfg_tbl ? cfg_tbl.querySelector('[data-role="children"]').value : 0),
+          extra: parseInt(cfg_tbl ? cfg_tbl.querySelector('[data-role="extra"]').value : 0, 10),
         };
         renderRooms();
-        renderSidebar(); // show sidebar instead of opening modal
+        renderSidebar();
+        openCheckout();
       });
     });
 
@@ -440,22 +450,34 @@
   function applyFilterAndSort() {
     let filtered = [...allRooms];
 
-    // Filter
-    if (activeFilter === "cabin") {
-      filtered = filtered.filter(r => {
-        const text = `${r.name} ${r.description || ""}`.toLowerCase();
-        return text.includes("cabin") || text.includes("wooden") || text.includes("house");
+    // If user arrived by clicking "Book" on a specific room, ONLY show that room
+    if (selectedRoomFilter) {
+      const match = filtered.filter(r => {
+        const a = (r.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const b = selectedRoomFilter.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return a.includes(b) || b.includes(a);
       });
-    } else if (activeFilter === "mountain") {
-      filtered = filtered.filter(r => {
-        const text = `${r.name} ${r.description || ""}`.toLowerCase();
-        return text.includes("mountain") || text.includes("view") || text.includes("afram") || text.includes("superior");
-      });
-    } else if (activeFilter === "family") {
-      filtered = filtered.filter(r => {
-        const text = `${r.name} ${r.description || ""}`.toLowerCase();
-        return text.includes("family") || text.includes("bedroom") || text.includes("two") || text.includes("dlx");
-      });
+      if (match.length > 0) {
+        filtered = match;
+      }
+    } else {
+      // Filter
+      if (activeFilter === "cabin") {
+        filtered = filtered.filter(r => {
+          const text = `${r.name} ${r.description || ""}`.toLowerCase();
+          return text.includes("cabin") || text.includes("wooden") || text.includes("house");
+        });
+      } else if (activeFilter === "mountain") {
+        filtered = filtered.filter(r => {
+          const text = `${r.name} ${r.description || ""}`.toLowerCase();
+          return text.includes("mountain") || text.includes("view") || text.includes("afram") || text.includes("superior");
+        });
+      } else if (activeFilter === "family") {
+        filtered = filtered.filter(r => {
+          const text = `${r.name} ${r.description || ""}`.toLowerCase();
+          return text.includes("family") || text.includes("bedroom") || text.includes("two") || text.includes("dlx");
+        });
+      }
     }
 
     // Sort
@@ -470,8 +492,31 @@
     rooms = filtered;
 
     const countEl = $("bkResultsCount");
-    if (countEl) {
-      countEl.textContent = `${rooms.length} ${rooms.length === 1 ? 'Room' : 'Rooms'}`;
+    const pillsWrap = $("bkFilterPills");
+
+    if (selectedRoomFilter && rooms.length === 1) {
+      if (pillsWrap) pillsWrap.style.display = "none";
+      if (countEl) {
+        countEl.innerHTML = `
+          <span style="display:inline-flex;align-items:center;gap:10px;">
+            <strong style="color:#b45f3c;font-size:0.85rem;">Selected Stay: ${esc(rooms[0].name)}</strong>
+            <button type="button" id="bkShowAllStaysBtn" style="background:#f1f5f9;border:1px solid #cbd5e1;padding:4px 12px;border-radius:14px;color:#b45f3c;font-weight:700;font-size:0.75rem;cursor:pointer;">&larr; View All Stays</button>
+          </span>
+        `;
+        const showAll = $("bkShowAllStaysBtn");
+        if (showAll) {
+          showAll.addEventListener("click", () => {
+            selectedRoomFilter = null;
+            if (pillsWrap) pillsWrap.style.display = "flex";
+            applyFilterAndSort();
+          });
+        }
+      }
+    } else {
+      if (pillsWrap) pillsWrap.style.display = "flex";
+      if (countEl) {
+        countEl.textContent = `${rooms.length} ${rooms.length === 1 ? 'Room' : 'Rooms'}`;
+      }
     }
 
     renderRooms();
@@ -798,24 +843,30 @@
       ]);
       allRooms = fetchedRooms;
       initFilterAndSortControls();
-      applyFilterAndSort();
 
-      // If URL has a specific room preselected, scroll smoothly to it
-      const paramRoom = urlParams.get("room");
-      if (paramRoom) {
-        setTimeout(() => {
-          const cards = document.querySelectorAll(".bk-room-card");
-          const targetCard = [...cards].find(c => {
-            const heading = c.querySelector(".bk-room-title h3");
-            return heading && heading.textContent.toLowerCase().includes(paramRoom.toLowerCase());
-          });
-          if (targetCard) {
-            targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
-            targetCard.style.outline = "2px solid #b45f3c";
-            targetCard.style.boxShadow = "0 0 20px rgba(180, 95, 60, 0.4)";
-          }
-        }, 350);
+      // If URL has a specific room preselected, automatically set cart
+      if (selectedRoomFilter) {
+        const matchedRoom = allRooms.find(r => {
+          const a = (r.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const b = selectedRoomFilter.toLowerCase().replace(/[^a-z0-9]/g, "");
+          return a.includes(b) || b.includes(a);
+        });
+
+        if (matchedRoom && !isRoomBlocked(matchedRoom.name)) {
+          const defaultAdults = (paramGuests && Number(paramGuests) >= 1 && Number(paramGuests) <= 5) ? Number(paramGuests) : 2;
+          cart = {
+            id: matchedRoom.id,
+            name: matchedRoom.name,
+            incRate: matchedRoom.price,
+            adults: defaultAdults,
+            children: 0,
+            extra: 0,
+          };
+          renderSidebar();
+        }
       }
+
+      applyFilterAndSort();
     } catch (err) {
       if (list) list.innerHTML = `<p class="bk-loading" style="color:red;">Could not load rooms: ${esc(err.message)}</p>`;
     }
