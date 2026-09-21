@@ -1,25 +1,36 @@
-// ── booking2.js — Cloud Nandy Hills booking engine ──────────────────────────
+/**
+ * booking2.js — Luxury Reservation Engine for Cloud Nandy Hills
+ * Handles availability filtering, dynamic rate computation, interactive guest
+ * configuration, sticky reservation sidebar, gallery auto-scroll, and payment checkout.
+ */
+
 (function () {
   "use strict";
 
-  // ── Config ──────────────────────────────────────────────────────────────────
-  const cfg = window.CLOUD_NANDY_SUPABASE;
-  let db = null;
-
-  if (window.supabase && cfg) {
-    db = window.supabase.createClient(cfg.url, cfg.key);
-  }
-
-  // ── Helpers ─────────────────────────────────────────────────────────────────
   const $ = (id) => document.getElementById(id);
+  const toVal = (d) => d.toISOString().split("T")[0];
+  const addDay = (d, n) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
+    return x;
+  };
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const toVal = (d) => d.toISOString().split("T")[0];
-  const addDay = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
   const fmt = (n) => "₹" + Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2 });
   const fmtRaw = (n) => Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-  const esc = (v) => String(v || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+  const esc = (v) =>
+    String(v || "").replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;",
+        }[c])
+    );
 
   // ── Date Defaults & URL Parameters ──────────────────────────────────────────
   const urlParams = new URLSearchParams(window.location.search);
@@ -33,6 +44,18 @@
   }
   let selectedRoomFilter = urlParams.get("room") || null;
 
+  const updateNightsBadge = () => {
+    if (!ci || !co) return 1;
+    const s = new Date(ci.value + "T00:00:00");
+    const e = new Date(co.value + "T00:00:00");
+    const count = Math.max(Math.round((e - s) / 86400000), 1);
+    const badge = $("bkNightsCount");
+    if (badge) {
+      badge.textContent = `${count} ${count === 1 ? "Night" : "Nights"}`;
+    }
+    return count;
+  };
+
   if (ci) {
     ci.min = toVal(today);
     ci.value = urlParams.get("checkIn") || toVal(addDay(today, 1));
@@ -40,7 +63,7 @@
       const s = new Date(ci.value + "T00:00:00");
       co.min = toVal(addDay(s, 1));
       if (new Date(co.value + "T00:00:00") <= s) co.value = toVal(addDay(s, 1));
-      // Re-fetch confirmed bookings and re-render rooms when dates change
+      updateNightsBadge();
       fetchConfirmedBookings().then(() => renderRooms());
       renderSidebar();
     });
@@ -49,151 +72,226 @@
     co.min = toVal(addDay(today, 2));
     co.value = urlParams.get("checkOut") || toVal(addDay(today, 2));
     co.addEventListener("change", () => {
-      // Re-render rooms with updated blocking when checkout date changes
+      updateNightsBadge();
       fetchConfirmedBookings().then(() => renderRooms());
       renderSidebar();
     });
   }
 
-  const nights = () => {
-    const s = new Date(ci.value + "T00:00:00");
-    const e = new Date(co.value + "T00:00:00");
-    return Math.max(Math.round((e - s) / 86400000), 1);
-  };
+  const nights = () => updateNightsBadge();
 
-  // ── SVG Icons ────────────────────────────────────────────────────────────────
-  const personSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>`;
-  const twoPersonSVG = personSVG + personSVG;
-  const childSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="3.5"/><path d="M7 21c0-3 2.5-5.5 5-5.5s5 2.5 5 5.5"/></svg>`;
-  const extraSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>`;
+  // Initial badge calculation
+  updateNightsBadge();
 
   // ── State ────────────────────────────────────────────────────────────────────
   let allRooms = [];
   let rooms = [];
-  let cart = null;
-  let activeFilter = urlParams.get("filter") || "all";
+  let cart = null; // { id, name, incRate, adults, children, extra }
+  let activeFilter = "all";
   let activeSort = "default";
-  let confirmedBookings = []; // [{room, check_in, check_out}] — from backend
+  let confirmedBookings = [];
+  let galleryTimers = [];
+
+  // ── Supabase Setup ───────────────────────────────────────────────────────────
+  const cfg = window.SUPABASE_CONFIG || {};
+  let db = null;
+  if (cfg.url && cfg.anonKey && window.supabase) {
+    db = window.supabase.createClient(cfg.url, cfg.anonKey);
+  }
 
   const API_BASE = "https://cloudynandyhills.onrender.com";
 
-  // Fetch confirmed bookings from backend (no PII returned)
   async function fetchConfirmedBookings() {
     try {
       const res = await fetch(API_BASE + "/api/bookings/confirmed");
-      if (!res.ok) return;
+      if (!res.ok) throw new Error("HTTP " + res.status);
       confirmedBookings = await res.json();
-    } catch (e) {
+    } catch {
       confirmedBookings = [];
     }
   }
 
-  // Returns true if the given room name has a confirmed booking
-  // that overlaps with the currently selected check-in/check-out dates
   function isRoomBlocked(roomName) {
-    if (!ci || !co) return false;
-    const selIn  = new Date(ci.value  + "T00:00:00");
-    const selOut = new Date(co.value  + "T00:00:00");
-    return confirmedBookings.some(function (b) {
+    if (!ci || !co || !ci.value || !co.value) return false;
+    const selIn = new Date(ci.value + "T00:00:00");
+    const selOut = new Date(co.value + "T00:00:00");
+    return confirmedBookings.some((b) => {
       if ((b.room || "").trim().toLowerCase() !== (roomName || "").trim().toLowerCase()) return false;
-      const bIn  = new Date(b.check_in  + "T00:00:00");
+      const bIn = new Date(b.check_in + "T00:00:00");
       const bOut = new Date(b.check_out + "T00:00:00");
-      // Overlap: bIn < selOut AND bOut > selIn
       return bIn < selOut && bOut > selIn;
+    });
+  }
+
+  // ── Gallery Auto-Scroll & Controls ───────────────────────────────────────────
+  function initBookingGalleries() {
+    galleryTimers.forEach(id => {
+      clearInterval(id);
+      clearTimeout(id);
+    });
+    galleryTimers = [];
+
+    document.querySelectorAll(".bk-card-gallery").forEach((gallery, gIdx) => {
+      const track = gallery.querySelector(".bk-card-gallery-track");
+      const slides = gallery.querySelectorAll(".bk-card-slide");
+      if (!track || slides.length <= 1) return;
+
+      const prevBtn = gallery.querySelector(".bk-gallery-nav-btn.prev");
+      const nextBtn = gallery.querySelector(".bk-gallery-nav-btn.next");
+      const counter = gallery.querySelector(".curr-img-idx");
+
+      let currentIdx = 0;
+      let isHovered = false;
+      let timer = null;
+
+      const goTo = (targetIdx) => {
+        currentIdx = (targetIdx + slides.length) % slides.length;
+        track.style.transform = `translateX(-${currentIdx * 100}%)`;
+        if (counter) counter.textContent = currentIdx + 1;
+      };
+
+      const start = () => {
+        if (timer) clearInterval(timer);
+        timer = setInterval(() => {
+          if (!isHovered) goTo(currentIdx + 1);
+        }, 3600);
+        galleryTimers.push(timer);
+      };
+
+      gallery.addEventListener("mouseenter", () => { isHovered = true; });
+      gallery.addEventListener("mouseleave", () => { isHovered = false; });
+
+      if (prevBtn) {
+        prevBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          goTo(currentIdx - 1);
+          start();
+        });
+      }
+      if (nextBtn) {
+        nextBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          goTo(currentIdx + 1);
+          start();
+        });
+      }
+
+      // Stagger start
+      const initDelay = 1200 + (gIdx * 600);
+      const to = setTimeout(start, initDelay);
+      galleryTimers.push(to);
     });
   }
 
   // ── Sidebar ──────────────────────────────────────────────────────────────────
   function renderSidebar() {
-    const sidebar = document.getElementById('bkSidebar');
-    const body    = document.getElementById('bkSidebarBody');
+    const sidebar = document.getElementById("bkSidebar");
+    const body = document.getElementById("bkSidebarBody");
     if (!sidebar || !body) return;
 
     if (!cart) {
-      sidebar.classList.remove('active');
+      body.innerHTML = `
+        <div style="text-align:center;padding:36px 12px;color:var(--text-muted);">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:12px;color:var(--text-gold);opacity:0.8;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          <p style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:6px;">No Stay Selected</p>
+          <p style="font-size:0.8rem;line-height:1.5;">Choose a mountain cabin on the left to configure guests and view reservation breakdown.</p>
+        </div>
+      `;
       return;
     }
 
     const n = nights();
-    const cinDisplay  = ci.value.split('-').reverse().join('-');
-    const coutDisplay = co.value.split('-').reverse().join('-');
+    const fmtD = (v) => v.split("-").reverse().join("-");
+    const cinDisplay = fmtD(ci.value);
+    const coutDisplay = fmtD(co.value);
 
-    const incRate       = cart.incRate;
-    const excRate       = incRate / 1.05;
+    const incRate = cart.incRate;
+    const excRate = incRate / 1.05;
     const extraChildInc = Math.round(incRate * 0.2);
     const extraChildExc = extraChildInc / 1.05;
     const extraChildCostExc = extraChildExc * cart.children;
 
     const roomRentExc = (excRate + extraChildCostExc) * n;
-    const tax      = roomRentExc * 0.05;
-    const exact    = roomRentExc + tax;
-    const total    = Math.round(exact);
-    const diff     = total - exact;
-    const roundStr = (diff >= 0 ? '+ ' : '- ') + Math.abs(diff).toFixed(2);
-    const abbr     = cart.name.split(' ').map(w => w[0]).join('').substring(0, 3).toUpperCase() + '-STD (CP)';
+    const tax = roomRentExc * 0.05;
+    const exact = roomRentExc + tax;
+    const total = Math.round(exact);
+    const diff = total - exact;
+    const roundStr = (diff >= 0 ? "+ " : "- ") + "₹" + Math.abs(diff).toFixed(2);
 
     body.innerHTML = `
-      <div class="bk-sb-dates">
-        <strong>Dates</strong>${cinDisplay} to ${coutDisplay}
+      <div class="bk-sb-room-name">${esc(cart.name)}</div>
+      <div class="bk-sb-room-desc">Scenic Mountain View &bull; Breakfast (CP) Included</div>
+
+      <div class="bk-sb-dates-box">
+        <div class="bk-sb-dates-col">
+          <strong>Dates &bull; Check-In / Out</strong>
+          <span>${cinDisplay} &rarr; ${coutDisplay}</span>
+        </div>
+        <div class="bk-sb-nights-badge">${n} ${n === 1 ? "Night" : "Nights"}</div>
       </div>
 
-      <div class="bk-sb-item-header">
-        <span class="bk-sb-item-name">${esc(abbr)}</span>
-        <button class="bk-sb-remove" id="bkSbRemove" title="Remove">✕</button>
+      <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border-glass);padding:10px 14px;border-radius:10px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;font-size:0.82rem;">
+        <span style="color:var(--text-gold);font-weight:600;">Selected Guests</span>
+        <span style="font-weight:700;color:#fff;">${cart.adults} Adult${cart.adults > 1 ? "s" : ""}${cart.children > 0 ? ", " + cart.children + " Child" : ""}</span>
       </div>
 
-      <table class="bk-sb-config">
-        <thead><tr><th>Room</th><th>Adult</th><th>Child</th><th>Extra</th></tr></thead>
-        <tbody><tr>
-          <td>1</td>
-          <td>${cart.adults}</td>
-          <td>${cart.children}</td>
-          <td>${cart.extra}</td>
-        </tr></tbody>
-      </table>
-
-      <div class="bk-sb-toggle" id="bkSbToggle">
-        Price Details <span class="caret">▲</span>
-      </div>
-
-      <div class="bk-sb-breakdown" id="bkSbBreakdown">
+      <div class="bk-sb-breakdown">
         <div class="bk-sb-row bold">
-          <strong>Total rent</strong><strong>${fmtRaw(roomRentExc)}</strong>
+          <span>Cabin Rent (${n}N)</span>
+          <span>₹${fmtRaw(excRate * n)}</span>
         </div>
-        <div class="bk-sb-row italic">
-          <small>Type 1 - Room 1 : ${n} days X ${fmtRaw(excRate + extraChildCostExc)}</small>
+        ${
+          cart.children > 0
+            ? `
+          <div class="bk-sb-row">
+            <span>Extra Child (${cart.children})</span>
+            <span>₹${fmtRaw(extraChildCostExc * n)}</span>
+          </div>
+        `
+            : ""
+        }
+        <div class="bk-sb-row">
+          <span>GST / Taxes (5%)</span>
+          <span>₹${fmtRaw(tax)}</span>
         </div>
-        <div class="bk-sb-row"><span>Room Rent</span><span>${fmtRaw(roomRentExc)}</span></div>
-        <div class="bk-sb-row"><span>Tax</span><span>${fmtRaw(tax)}</span></div>
-        <div class="bk-sb-row"><span>Roundoff</span><span>${roundStr}</span></div>
+        <div class="bk-sb-row">
+          <span>Round-off</span>
+          <span>${roundStr}</span>
+        </div>
       </div>
 
-      <div class="bk-sb-total">
-        <span>Total</span><span>₹${total}.00/-</span>
+      <div class="bk-sb-total-box">
+        <span class="bk-sb-total-lbl">Total Payable</span>
+        <span class="bk-sb-total-val">₹${Number(total).toLocaleString("en-IN")}.00</span>
       </div>
 
-      <button class="bk-sb-reserve" id="bkSbReserve">RESERVE</button>
+      <button type="button" class="bk-sb-action-btn" id="bkSbReserve">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <span>RESERVE NOW</span>
+      </button>
+
+      <div class="bk-sb-perks">
+        <div class="bk-sb-perk-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Instant booking confirmation</span>
+        </div>
+        <div class="bk-sb-perk-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Complimentary hill breakfast included</span>
+        </div>
+        <div class="bk-sb-perk-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Free cancellation up to 48 hours</span>
+        </div>
+      </div>
     `;
 
-    sidebar.classList.add('active');
-
-    // Toggle price details
-    document.getElementById('bkSbToggle').addEventListener('click', () => {
-      const tog = document.getElementById('bkSbToggle');
-      const bkd = document.getElementById('bkSbBreakdown');
-      tog.classList.toggle('collapsed');
-      bkd.classList.toggle('hidden');
-    });
-
-    // Remove button
-    document.getElementById('bkSbRemove').addEventListener('click', () => {
-      cart = null;
-      renderSidebar();
-      renderRooms();
-    });
-
-    // Reserve — open the checkout modal
-    document.getElementById('bkSbReserve').addEventListener('click', openCheckout);
+    const reserveBtn = document.getElementById("bkSbReserve");
+    if (reserveBtn) {
+      reserveBtn.addEventListener("click", openCheckout);
+    }
   }
 
   // ── Fetch Rooms ──────────────────────────────────────────────────────────────
@@ -204,11 +302,12 @@
       .select("*")
       .order("created_at", { ascending: false });
     if (error) throw error;
-    return (data || []).map(p => ({
-      id: String(p.id),
-      name: p.name || "Room",
-      price: Number(p.price) || 0,
-      images: (p.image_urls && p.image_urls.length) ? p.image_urls : [p.image_url || p.image].filter(Boolean),
+    return (data || []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price || 0),
+      description: p.description || "",
+      images: p.image_urls && p.image_urls.length ? p.image_urls : [p.image_url || p.image].filter(Boolean),
     }));
   }
 
@@ -218,213 +317,214 @@
     if (!list) return;
 
     if (!rooms.length) {
-      list.innerHTML = '<p class="bk-loading">No rooms available.</p>';
+      list.innerHTML = `
+        <div style="text-align:center;padding:80px 20px;background:var(--bg-card);border:1px solid var(--border-glass);border-radius:var(--radius-lg);">
+          <p style="font-size:1.2rem;font-weight:700;color:#fff;margin-bottom:8px;">No Cabins Available</p>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:20px;">No stays matched your dates or filter criteria.</p>
+          <button type="button" class="bk-btn-update" id="bkResetFiltersBtn">Reset &amp; View All Stays</button>
+        </div>
+      `;
+      const rst = $("bkResetFiltersBtn");
+      if (rst) {
+        rst.addEventListener("click", () => {
+          selectedRoomFilter = null;
+          activeFilter = "all";
+          applyFilterAndSort();
+        });
+      }
       return;
     }
 
-    const defaultAdults = (paramGuests && Number(paramGuests) >= 1 && Number(paramGuests) <= 5) ? Number(paramGuests) : 2;
+    const defaultAdults = paramGuests && Number(paramGuests) >= 1 && Number(paramGuests) <= 5 ? Number(paramGuests) : 2;
 
-    list.innerHTML = rooms.map((r, i) => {
-      const inCart  = cart && cart.id === r.id;
-      const blocked = isRoomBlocked(r.name);
-      const incRate = r.price;
-      const excRate = incRate / 1.05;
-      const extraChildInc = Math.round(incRate * 0.2);
-      const extraChildExc = extraChildInc / 1.05;
+    list.innerHTML = rooms
+      .map((r, i) => {
+        const inCart = cart && cart.id === r.id;
+        const blocked = isRoomBlocked(r.name);
+        const incRate = r.price;
 
-      const imgs = r.images.length ? r.images : [""];
-      const hasMulti = imgs.length > 1;
-      const roomsLeft = (inCart || blocked) ? 0 : 1;
+        const imgs = r.images.length ? r.images : ["./image.jpg"];
+        const hasMulti = imgs.length > 1;
 
-      const imgsJSON = esc(JSON.stringify(imgs));
-      const imgSlides = imgs.map((url, idx) =>
-        `<a href="#" class="lightbox-trigger" data-images="${imgsJSON}" data-index="${idx}" style="display:${idx > 0 ? 'none' : 'block'}">
-          <img src="${esc(url)}" alt="${esc(r.name)} - Image ${idx+1}" class="bk-slide-img" />
-        </a>`
-      ).join("");
+        const imgsJSON = esc(JSON.stringify(imgs));
+        const adultVal = inCart ? cart.adults : defaultAdults;
+        const childVal = inCart ? cart.children : 0;
+        const extraVal = inCart ? cart.extra : 0;
 
-      const sliderBtns = hasMulti ? `
-        <button class="bk-slider-btn prev" data-sid="${i}" aria-label="Prev">&#10094;</button>
-        <button class="bk-slider-btn next" data-sid="${i}" aria-label="Next">&#10095;</button>` : "";
-
-      // Reserve button: blocked = "Booked", inCart = "Reserve Now", else "Reserve Room"
-      const bookBtn = blocked
-        ? `<button class="bk-book-btn is-booked" disabled style="background:#f1f5f9;color:#94a3b8;border:1px solid #cbd5e1;cursor:not-allowed;display:inline-flex;align-items:center;gap:5px;box-shadow:none;padding:6px 16px;font-size:0.82rem;font-weight:700;border-radius:4px;">
-             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-             Booked
-           </button>`
-        : `<button class="bk-book-btn" data-rid="${esc(r.id)}" style="background:#b45f3c;color:#fff;border:none;padding:8px 20px;font-weight:700;border-radius:6px;cursor:pointer;font-size:0.88rem;box-shadow:0 3px 10px rgba(180,95,60,0.3);letter-spacing:0.02em;">
-             Reserve Room
-           </button>`;
-
-      const adultVal = inCart ? cart.adults : defaultAdults;
-      const childVal = inCart ? cart.children : 0;
-      const extraVal = inCart ? cart.extra : 0;
-
-      return `
-        <div class="bk-room-card" id="card-${esc(r.id)}">
-          <div class="bk-room-title" style="display:flex;justify-content:space-between;align-items:center;">
-            <h3>${esc(r.name)}</h3>
-            ${blocked ? `<span style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Dates Unavailable</span>` : ''}
-          </div>
-          <div class="bk-room-body">
-
-            <div class="bk-room-img-wrap">
-              <div class="bk-img-slider" id="slider-${i}">
-                ${imgSlides}
-                ${sliderBtns}
+        return `
+        <article class="bk-room-card" id="card-${esc(r.id)}">
+          <!-- Room Gallery Carousel -->
+          <div class="bk-card-gallery" data-gallery-id="${i}">
+            <div class="bk-card-gallery-track">
+              ${imgs
+                .map(
+                  (url, idx) => `
+                <div class="bk-card-slide">
+                  <a href="#" class="lightbox-trigger" data-images="${imgsJSON}" data-index="${idx}" aria-label="View photo ${idx + 1}">
+                    <img src="${esc(url)}" alt="${esc(r.name)} - Photo ${idx + 1}" loading="${idx === 0 ? "eager" : "lazy"}" />
+                  </a>
+                </div>
+              `
+                )
+                .join("")}
+            </div>
+            <div class="bk-card-gallery-overlay"></div>
+            ${
+              hasMulti
+                ? `
+              <button class="bk-gallery-nav-btn prev" type="button" aria-label="Previous image">&#10094;</button>
+              <button class="bk-gallery-nav-btn next" type="button" aria-label="Next image">&#10095;</button>
+              <div class="bk-gallery-counter">
+                <span class="curr-img-idx">1</span> / ${imgs.length}
               </div>
-              <div class="bk-facilities">
-                <h4>Facilities</h4>
-                <div class="bk-fac-grid">
-                  <span>TV</span><span>ADVANCED HEATER</span>
-                  <span>TOWEL</span><span>WATER BOTTLE</span>
+            `
+                : ""
+            }
+          </div>
+
+          <!-- Room Information -->
+          <div class="bk-room-body">
+            <div class="bk-room-header">
+              <div class="bk-room-title">
+                <h3>${esc(r.name)}</h3>
+                <div class="bk-room-tags">
+                  <span class="bk-room-tag">Mountain View</span>
+                  <span class="bk-room-tag">Free Breakfast (CP)</span>
+                  <span class="bk-room-tag">Max 5 Guests</span>
+                  ${
+                    blocked
+                      ? `<span style="background:rgba(239,68,68,0.2);color:#fca5a5;border:1px solid rgba(239,68,68,0.4);font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;">Unavailable For Dates</span>`
+                      : ""
+                  }
+                </div>
+              </div>
+
+              <div class="bk-price-tag">
+                <div class="bk-price-amount">₹${Number(incRate).toLocaleString("en-IN")}</div>
+                <div class="bk-price-sub">per night (inclusive of GST)</div>
+              </div>
+            </div>
+
+            <p class="bk-room-desc">
+              ${esc(
+                r.description ||
+                  "Enjoy scenic panoramic mountain views, misty pine breeze, plush wooden interior, and serene hill stay hospitality."
+              )}
+            </p>
+
+            <!-- Key Amenities Grid -->
+            <div class="bk-amenities-section-title">Included Cabin Amenities</div>
+            <div class="bk-amenities-grid">
+              <div class="bk-amenity-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>
+                <span>Smart Android TV</span>
+              </div>
+              <div class="bk-amenity-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                <span>Advanced Room Heater</span>
+              </div>
+              <div class="bk-amenity-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9"></path></svg>
+                <span>King Size Bed</span>
+              </div>
+              <div class="bk-amenity-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+                <span>Mountain Spring Water</span>
+              </div>
+              <div class="bk-amenity-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+                <span>Fresh Breakfast Included</span>
+              </div>
+              <div class="bk-amenity-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                <span>Plush Towels &amp; Linens</span>
+              </div>
+            </div>
+
+            <!-- Modern Guest Configuration Selectors -->
+            <div class="bk-config-box" id="cfg-${esc(r.id)}">
+              <div class="bk-config-header">
+                <span class="bk-config-title">Configure Guests for this Stay</span>
+                <span class="bk-config-note">Accommodates up to 5 guests</span>
+              </div>
+
+              <div class="bk-config-selectors">
+                <div class="bk-selector-group">
+                  <label>Adults (12+ yrs)</label>
+                  <select class="bk-stepper-select" data-role="adults" data-rid="${esc(r.id)}">
+                    <option value="1" ${adultVal === 1 ? "selected" : ""}>1 Adult</option>
+                    <option value="2" ${adultVal === 2 ? "selected" : ""}>2 Adults</option>
+                    <option value="3" ${adultVal === 3 ? "selected" : ""}>3 Adults</option>
+                    <option value="4" ${adultVal === 4 ? "selected" : ""}>4 Adults</option>
+                    <option value="5" ${adultVal === 5 ? "selected" : ""}>5 Adults</option>
+                  </select>
+                </div>
+
+                <div class="bk-selector-group">
+                  <label>Children (under 12 yrs)</label>
+                  <select class="bk-stepper-select" data-role="children" data-rid="${esc(r.id)}">
+                    <option value="0" ${childVal === 0 ? "selected" : ""}>0 Children</option>
+                    <option value="1" ${childVal === 1 ? "selected" : ""}>1 Child</option>
+                    <option value="2" ${childVal === 2 ? "selected" : ""}>2 Children</option>
+                  </select>
+                </div>
+
+                <div class="bk-selector-group">
+                  <label>Extra Bed / Mattress</label>
+                  <select class="bk-stepper-select" data-role="extra" data-rid="${esc(r.id)}">
+                    <option value="0" ${extraVal === 0 ? "selected" : ""}>None</option>
+                    <option value="1" ${extraVal === 1 ? "selected" : ""}>1 Extra Bed</option>
+                    <option value="2" ${extraVal === 2 ? "selected" : ""}>2 Extra Beds</option>
+                  </select>
                 </div>
               </div>
             </div>
 
-            <div class="bk-room-details">
-              <div class="bk-std-row">
-                <span class="bk-std-label">STD <small style="font-weight:normal">(With Breakfast)</small></span>
-                <span class="bk-std-price">${fmtRaw(excRate)}</span>
+            <!-- Card Footer Action -->
+            <div class="bk-card-footer">
+              <div class="bk-card-guarantee">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>Free cancellation up to 48 hours before check-in</span>
               </div>
 
-              <div class="bk-table-responsive">
-                <table class="bk-rate-table">
-                  <thead>
-                    <tr>
-                      <th>Pax</th>
-                      <th>${personSVG}</th>
-                      <th>${twoPersonSVG}</th>
-                      <th>${childSVG}</th>
-                      <th>${extraSVG}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Rate</td>
-                      <td>${fmt(excRate)}</td>
-                      <td>${fmt(excRate)}</td>
-                      <td>${fmt(extraChildExc)}</td>
-                      <td>₹0</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <p class="bk-tax-note"><span style="color:red">*</span> Taxes added to Actual Rates depending on No.of Sleeps</p>
-
-              <div class="bk-info-bar">
-                <span class="bk-room-info-lbl"><span class="bk-i-icon">i</span> Room Info</span>
-                <span style="display:inline-flex;align-items:center;gap:8px;">
-                  ${blocked
-                    ? `<span class="bk-rooms-left" style="color:#dc2626;font-weight:600;font-size:0.80rem;">Unavailable for dates</span>`
-                    : `<span class="bk-rooms-left">${roomsLeft} Room(s) Left</span>`
-                  }
-                  ${bookBtn}
-                </span>
-              </div>
-
-              <div class="bk-table-responsive">
-                <table class="bk-config-table" id="cfg-${esc(r.id)}">
-                  <thead>
-                    <tr>
-                      <th>Rooms</th>
-                      <th>Adult <small style="font-weight:normal">(Pax Per Room)</small></th>
-                      <th>Child <small style="font-weight:normal">(Total Pax)</small></th>
-                      <th>Extra <small style="font-weight:normal">(Total Pax)</small></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>1</td>
-                      <td>
-                        <select class="bk-config-select" data-role="adults" data-rid="${esc(r.id)}">
-                          <option value="1" ${adultVal === 1 ? 'selected' : ''}>1</option>
-                          <option value="2" ${adultVal === 2 ? 'selected' : ''}>2</option>
-                          <option value="3" ${adultVal === 3 ? 'selected' : ''}>3</option>
-                          <option value="4" ${adultVal === 4 ? 'selected' : ''}>4</option>
-                          <option value="5" ${adultVal === 5 ? 'selected' : ''}>5</option>
-                        </select>
-                      </td>
-                      <td>
-                        <select class="bk-config-select" data-role="children" data-rid="${esc(r.id)}">
-                          <option value="0" ${childVal === 0 ? 'selected' : ''}>0</option>
-                          <option value="1" ${childVal === 1 ? 'selected' : ''}>1</option>
-                          <option value="2" ${childVal === 2 ? 'selected' : ''}>2</option>
-                        </select>
-                      </td>
-                      <td>
-                        <select class="bk-config-select" data-role="extra" data-rid="${esc(r.id)}">
-                          <option value="0" ${extraVal === 0 ? 'selected' : ''}>0</option>
-                          <option value="1" ${extraVal === 1 ? 'selected' : ''}>1</option>
-                          <option value="2" ${extraVal === 2 ? 'selected' : ''}>2</option>
-                        </select>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              ${
+                blocked
+                  ? `
+                <button class="bk-btn-reserve" disabled type="button">
+                  <span>Dates Unavailable</span>
+                </button>
+              `
+                  : `
+                <button class="bk-btn-reserve" data-rid="${esc(r.id)}" type="button">
+                  <span>Reserve This Cabin</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                </button>
+              `
+              }
             </div>
-
           </div>
-        </div>`;
-    }).join("");
+        </article>
+      `;
+      })
+      .join("");
 
-    // Slider buttons
-    list.querySelectorAll(".bk-slider-btn").forEach(btn => {
-      btn.addEventListener("click", e => {
-        e.preventDefault();
-        e.stopPropagation();
-        const sid = btn.dataset.sid;
-        const sldr = document.getElementById("slider-" + sid);
-        const slides = sldr.querySelectorAll(".lightbox-trigger");
-        let cur = [...slides].findIndex(s => s.style.display !== "none");
-        slides[cur].style.display = "none";
-        const dir = btn.classList.contains("next") ? 1 : -1;
-        slides[(cur + dir + slides.length) % slides.length].style.display = "block";
-      });
-    });
+    // Initialize photo gallery carousels on room cards
+    initBookingGalleries();
 
-    // Auto-scroll booking room image sliders
-    if (window._bkSliderTimers) {
-      window._bkSliderTimers.forEach(clearInterval);
-    }
-    window._bkSliderTimers = [];
-
-    list.querySelectorAll(".bk-img-slider").forEach((sldr, sIdx) => {
-      const slides = sldr.querySelectorAll(".lightbox-trigger");
-      if (slides.length <= 1) return;
-      let isPaused = false;
-      const card = sldr.closest(".bk-room-card") || sldr;
-      card.addEventListener("mouseenter", () => { isPaused = true; });
-      card.addEventListener("mouseleave", () => { isPaused = false; });
-
-      const timer = setInterval(() => {
-        if (isPaused) return;
-        let cur = [...slides].findIndex(s => s.style.display !== "none");
-        if (cur === -1) cur = 0;
-        slides[cur].style.display = "none";
-        slides[(cur + 1) % slides.length].style.display = "block";
-      }, 3600 + sIdx * 600);
-      window._bkSliderTimers.push(timer);
-    });
-
-    // Book Room buttons — skip blocked rooms
-    list.querySelectorAll(".bk-book-btn").forEach(btn => {
+    // Hook Reserve button click handlers
+    list.querySelectorAll(".bk-btn-reserve").forEach((btn) => {
       btn.addEventListener("click", () => {
         const rid = btn.dataset.rid;
-        const room = rooms.find(r => r.id === rid);
-        if (!room) return;
-        if (isRoomBlocked(room.name)) return; // double-guard
-        const cfg_tbl = document.getElementById("cfg-" + rid);
+        const room = rooms.find((r) => r.id === rid);
+        if (!room || isRoomBlocked(room.name)) return;
+        const cfg_box = document.getElementById("cfg-" + rid);
         cart = {
           id: rid,
           name: room.name,
           incRate: room.price,
-          adults: Number(cfg_tbl ? cfg_tbl.querySelector('[data-role="adults"]').value : defaultAdults),
-          children: Number(cfg_tbl ? cfg_tbl.querySelector('[data-role="children"]').value : 0),
-          extra: parseInt(cfg_tbl ? cfg_tbl.querySelector('[data-role="extra"]').value : 0, 10),
+          adults: Number(cfg_box ? cfg_box.querySelector('[data-role="adults"]').value : defaultAdults),
+          children: Number(cfg_box ? cfg_box.querySelector('[data-role="children"]').value : 0),
+          extra: parseInt(cfg_box ? cfg_box.querySelector('[data-role="extra"]').value : 0, 10),
         };
         renderRooms();
         renderSidebar();
@@ -432,14 +532,15 @@
       });
     });
 
-    // Config selects — keep cart and sidebar in sync
-    list.querySelectorAll(".bk-config-select").forEach(sel => {
+    // Hook config changes
+    list.querySelectorAll(".bk-stepper-select").forEach((sel) => {
       sel.addEventListener("change", () => {
-        if (cart && cart.id === sel.dataset.rid) {
-          const cfg_tbl = document.getElementById("cfg-" + cart.id);
-          cart.adults   = parseInt(cfg_tbl.querySelector('[data-role="adults"]').value, 10);
-          cart.children = parseInt(cfg_tbl.querySelector('[data-role="children"]').value, 10);
-          cart.extra    = parseInt(cfg_tbl.querySelector('[data-role="extra"]').value, 10);
+        const rid = sel.dataset.rid;
+        if (cart && cart.id === rid) {
+          const cfg_box = document.getElementById("cfg-" + cart.id);
+          cart.adults = parseInt(cfg_box.querySelector('[data-role="adults"]').value, 10);
+          cart.children = parseInt(cfg_box.querySelector('[data-role="children"]').value, 10);
+          cart.extra = parseInt(cfg_box.querySelector('[data-role="extra"]').value, 10);
           renderSidebar();
         }
       });
@@ -452,7 +553,7 @@
 
     // If user arrived by clicking "Book" on a specific room, ONLY show that room
     if (selectedRoomFilter) {
-      const match = filtered.filter(r => {
+      const match = filtered.filter((r) => {
         const a = (r.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
         const b = selectedRoomFilter.toLowerCase().replace(/[^a-z0-9]/g, "");
         return a.includes(b) || b.includes(a);
@@ -461,19 +562,19 @@
         filtered = match;
       }
     } else {
-      // Filter
+      // Category filters
       if (activeFilter === "cabin") {
-        filtered = filtered.filter(r => {
+        filtered = filtered.filter((r) => {
           const text = `${r.name} ${r.description || ""}`.toLowerCase();
           return text.includes("cabin") || text.includes("wooden") || text.includes("house");
         });
       } else if (activeFilter === "mountain") {
-        filtered = filtered.filter(r => {
+        filtered = filtered.filter((r) => {
           const text = `${r.name} ${r.description || ""}`.toLowerCase();
           return text.includes("mountain") || text.includes("view") || text.includes("afram") || text.includes("superior");
         });
       } else if (activeFilter === "family") {
-        filtered = filtered.filter(r => {
+        filtered = filtered.filter((r) => {
           const text = `${r.name} ${r.description || ""}`.toLowerCase();
           return text.includes("family") || text.includes("bedroom") || text.includes("two") || text.includes("dlx");
         });
@@ -499,8 +600,8 @@
       if (countEl) {
         countEl.innerHTML = `
           <span style="display:inline-flex;align-items:center;gap:10px;">
-            <strong style="color:#b45f3c;font-size:0.85rem;">Selected Stay: ${esc(rooms[0].name)}</strong>
-            <button type="button" id="bkShowAllStaysBtn" style="background:#f1f5f9;border:1px solid #cbd5e1;padding:4px 12px;border-radius:14px;color:#b45f3c;font-weight:700;font-size:0.75rem;cursor:pointer;">&larr; View All Stays</button>
+            <strong style="color:var(--text-gold);font-size:0.85rem;">Selected Stay: ${esc(rooms[0].name)}</strong>
+            <button type="button" id="bkShowAllStaysBtn" style="background:rgba(255,255,255,0.08);border:1px solid var(--border-glass);padding:4px 12px;border-radius:14px;color:var(--accent);font-weight:700;font-size:0.75rem;cursor:pointer;">&larr; View All Stays</button>
           </span>
         `;
         const showAll = $("bkShowAllStaysBtn");
@@ -515,7 +616,7 @@
     } else {
       if (pillsWrap) pillsWrap.style.display = "flex";
       if (countEl) {
-        countEl.textContent = `${rooms.length} ${rooms.length === 1 ? 'Room' : 'Rooms'}`;
+        countEl.textContent = `${rooms.length} ${rooms.length === 1 ? "Stay" : "Stays"}`;
       }
     }
 
@@ -524,13 +625,13 @@
 
   function initFilterAndSortControls() {
     const pills = document.querySelectorAll("#bkFilterPills .bk-pill");
-    pills.forEach(p => {
+    pills.forEach((p) => {
       if (p.dataset.filter === activeFilter) {
-        pills.forEach(x => x.classList.remove("active"));
+        pills.forEach((x) => x.classList.remove("active"));
         p.classList.add("active");
       }
       p.addEventListener("click", () => {
-        pills.forEach(x => x.classList.remove("active"));
+        pills.forEach((x) => x.classList.remove("active"));
         p.classList.add("active");
         activeFilter = p.dataset.filter || "all";
         applyFilterAndSort();
@@ -550,11 +651,9 @@
   function showAvailAlert(type, htmlMsg) {
     const alertBox = $("bkAvailAlert");
     const msgEl = $("bkAvailAlertMsg");
-    const iconEl = $("bkAvailAlertIcon");
     if (!alertBox || !msgEl) return;
 
     alertBox.className = `bk-avail-alert ${type}`;
-    if (iconEl) iconEl.textContent = type === "success" ? "✓" : "!";
     msgEl.innerHTML = htmlMsg;
     alertBox.style.display = "block";
   }
@@ -590,7 +689,6 @@
       const n = nights();
       const cinDisplay = sVal.split("-").reverse().join("-");
       const coutDisplay = eVal.split("-").reverse().join("-");
-      const guestRooms = Number(rc ? rc.value : 1) || 1;
 
       if (cart) {
         renderSidebar();
@@ -600,7 +698,7 @@
 
       showAvailAlert(
         "success",
-        `✓ <strong>${rooms.length} Room types available</strong> for <strong>${n} Night(s)</strong> (${cinDisplay} to ${coutDisplay}) &middot; ${guestRooms} Room(s)`
+        `✓ <strong>${rooms.length} stay type(s) available</strong> for <strong>${n} Night(s)</strong> (${cinDisplay} to ${coutDisplay}).`
       );
 
       const mainCol = document.querySelector(".bk-main-col");
@@ -610,233 +708,203 @@
     });
   }
 
-  // ── Checkout Full-Page ─────────────────────────────────────────────────────────────
+  // ── Checkout Modal Functions ─────────────────────────────────────────────────
   function openCheckout() {
     if (!cart) return;
-    const n              = nights();
-    const incRate        = cart.incRate;
-    const excRate        = incRate / 1.05;
-    
-    const extraChildInc  = Math.round(incRate * 0.2);
-    const extraChildExc  = extraChildInc / 1.05;
+    const n = nights();
+    const incRate = cart.incRate;
+    const excRate = incRate / 1.05;
+
+    const extraChildInc = Math.round(incRate * 0.2);
+    const extraChildExc = extraChildInc / 1.05;
     const extraChildCostExc = extraChildExc * cart.children;
-    
+
     const roomRentExc = (excRate + extraChildCostExc) * n;
-    const tax         = roomRentExc * 0.05;
-    const exact       = roomRentExc + tax;
-    const total       = Math.round(exact);
-    const diff        = total - exact;
+    const tax = roomRentExc * 0.05;
+    const exact = roomRentExc + tax;
+    const total = Math.round(exact);
 
-    // Hidden inputs
-    $("bkRoom").value    = cart.name;
-    $("bkCheckIn").value  = ci.value;
-    $("bkCheckOut").value = co.value;
-    $("bkAdults").value   = cart.adults;
-    $("bkChildren").value = cart.children;
+    // Hidden form inputs
+    if ($("bkRoom")) $("bkRoom").value = cart.name;
+    if ($("bkCheckIn")) $("bkCheckIn").value = ci.value;
+    if ($("bkCheckOut")) $("bkCheckOut").value = co.value;
+    if ($("bkAdults")) $("bkAdults").value = cart.adults;
+    if ($("bkChildren")) $("bkChildren").value = cart.children;
 
-    // Format dates: YYYY-MM-DD -> DD-MM-YYYY
-    const fmtDate = (v) => v.split('-').reverse().join('-');
-    const cinD  = fmtDate(ci.value);
+    // Date formatting: DD-MM-YYYY
+    const fmtDate = (v) => v.split("-").reverse().join("-");
+    const cinD = fmtDate(ci.value);
     const coutD = fmtDate(co.value);
-    const abbr  = cart.name.split(' ').map(w => w[0]).join('').substring(0,3).toUpperCase() + '-STD (CP)';
 
-    // Right-side summary card
-    $("ckCinVal").textContent  = cinD;
-    $("ckCoutVal").textContent = coutD;
-    $("ckSumRoomName").textContent = cart.name + " - ( " + abbr + " )";
-    $("ckSumRoomDetail").innerHTML =
-      n + " night" + (n > 1 ? "s" : "") + " &bull; " +
-      cart.adults + " Adult" + (cart.adults > 1 ? "s" : "") +
-      (cart.children > 0 ? " &bull; " + cart.children + " Child" : "") +
-      (cart.extra    > 0 ? " &bull; " + cart.extra    + " Extra" : "");
-    $("ckSumRoomPrice").textContent = "Total: \u20b9" + total + ".00/-";
+    // Update modal summary card
+    if ($("ckCinVal")) $("ckCinVal").textContent = cinD;
+    if ($("ckCoutVal")) $("ckCoutVal").textContent = coutD;
+    if ($("ckSumRoomName")) $("ckSumRoomName").textContent = cart.name;
+    if ($("ckSumRoomDetail")) {
+      $("ckSumRoomDetail").innerHTML =
+        `${n} Night${n > 1 ? "s" : ""} &bull; ` +
+        `${cart.adults} Adult${cart.adults > 1 ? "s" : ""}` +
+        (cart.children > 0 ? ` &bull; ${cart.children} Child` : "") +
+        (cart.extra > 0 ? ` &bull; ${cart.extra} Extra Bed` : "");
+    }
+    if ($("ckSumRoomPrice")) $("ckSumRoomPrice").textContent = "₹" + total.toLocaleString("en-IN") + ".00";
 
-    // Modify button — close and go back to booking
-    $("ckModifyBtn").onclick = closeCheckout;
-
-    // Overview table
-    $("ckOverviewBody").innerHTML =
-      "<tr>" +
-        "<td>" + cinD  + "</td>" +
-        "<td>" + coutD + "</td>" +
-        "<td>1</td><td>1</td>" +
-        "<td>" + n + "</td>" +
-        "<td>" + cart.adults   + "</td>" +
-        "<td>" + cart.children + "</td>" +
-        "<td>" + cart.extra    + "</td>" +
-      "</tr>";
-
-    // Rate breakdown table
-    const childPaxRateStr = fmtRaw(cart.children > 0 ? extraChildExc : 0);
-    $("ckRateBody").innerHTML =
-      "<tr><td class='room-label' colspan='9'>" + esc(cart.name) + " &mdash; ( " + esc(abbr) + " )</td></tr>" +
-      "<tr>" +
-        "<td>1.</td>" +
-        "<td>" + cart.adults   + "</td>" +
-        "<td>" + cart.children + "</td>" +
-        "<td>" + cart.extra    + "</td>" +
-        "<td>" + fmtRaw(excRate) + "</td>" +
-        "<td>0.00</td>" +
-        "<td>" + childPaxRateStr + "</td>" +
-        "<td>" + fmtRaw(tax) + "</td>" +
-        "<td>" + fmtRaw(roomRentExc + tax) + "</td>" +
-      "</tr>" +
-      "<tr class='subtotal'>" +
-        "<td><strong>Total</strong></td>" +
-        "<td><strong>" + cart.adults   + "</strong></td>" +
-        "<td><strong>" + cart.children + "</strong></td>" +
-        "<td><strong>" + cart.extra    + "</strong></td>" +
-        "<td><strong>" + fmtRaw(excRate) + "</strong></td>" +
-        "<td><strong>0.00</strong></td>" +
-        "<td><strong>" + childPaxRateStr + "</strong></td>" +
-        "<td><strong>" + fmtRaw(tax) + "</strong></td>" +
-        "<td><strong>" + fmtRaw(roomRentExc + tax) + "</strong></td>" +
-      "</tr>";
-
-    // Totals
-    $("ckRoundoffLine").textContent = "Round-off Amount : " + Math.abs(diff).toFixed(2);
-    $("ckGrandTotal").innerHTML     = "Total Payable Amount : <span style='color:#b45f3c;font-size:1.2rem;font-weight:800'>\u20b9" + total + ".00</span>";
-
-
-    $("bkOverlay").classList.add("open");
-    $("bkOverlay").scrollTop = 0;
+    const overlay = $("bkOverlay");
+    if (overlay) {
+      overlay.classList.add("is-open");
+      overlay.classList.add("open");
+      overlay.scrollTop = 0;
+    }
     document.body.style.overflow = "hidden";
   }
 
   function closeCheckout() {
-    $("bkOverlay").classList.remove("open");
+    const overlay = $("bkOverlay");
+    if (overlay) {
+      overlay.classList.remove("is-open");
+      overlay.classList.remove("open");
+    }
     document.body.style.overflow = "";
     const msg = $("bkFormMsg");
-    if (msg) { msg.style.display = "none"; msg.textContent = ""; }
+    if (msg) {
+      msg.style.display = "none";
+      msg.textContent = "";
+    }
   }
 
-  $("bkCloseModal").addEventListener("click", closeCheckout);
-  document.addEventListener("keydown", e => { if (e.key === "Escape") closeCheckout(); });
+  const closeBtn = $("bkCloseModal");
+  if (closeBtn) closeBtn.addEventListener("click", closeCheckout);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeCheckout();
+  });
 
   // ── Form Submit — CCAvenue Payment ────────────────────────────────────────
-  $("bkForm").addEventListener("submit", async e => {
-    e.preventDefault();
-    if (!cart) return;
+  const bkForm = $("bkForm");
+  if (bkForm) {
+    bkForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!cart) return;
 
-    const n              = nights();
-    const incRate        = cart.incRate;
-    const excRate        = incRate / 1.05;
-    const extraChildInc  = Math.round(incRate * 0.2);
-    const extraChildExc  = extraChildInc / 1.05;
-    const extraChildCostExc = extraChildExc * cart.children;
-    const roomRentExc    = (excRate + extraChildCostExc) * n;
-    const tax            = roomRentExc * 0.05;
-    const total          = Math.round(roomRentExc + tax);
+      const n = nights();
+      const incRate = cart.incRate;
+      const excRate = incRate / 1.05;
+      const extraChildInc = Math.round(incRate * 0.2);
+      const extraChildExc = extraChildInc / 1.05;
+      const extraChildCostExc = extraChildExc * cart.children;
+      const roomRentExc = (excRate + extraChildCostExc) * n;
+      const tax = roomRentExc * 0.05;
+      const total = Math.round(roomRentExc + tax);
 
-    const name     = $("bkName").value.trim();
-    const email    = $("bkEmail").value.trim();
-    const phone    = $("bkPhone").value.trim();
-    const requests = $("bkRequests") ? $("bkRequests").value.trim() : "";
+      const name = $("bkName").value.trim();
+      const email = $("bkEmail").value.trim();
+      const phone = $("bkPhone").value.trim();
+      const requests = $("bkRequests") ? $("bkRequests").value.trim() : "";
 
-    if (!name || !phone) {
+      if (!name || !phone) {
+        const msg = $("bkFormMsg");
+        msg.style.display = "block";
+        msg.className = "bk-msg error";
+        msg.textContent = "Please enter your name and phone number.";
+        return;
+      }
+
+      const submitBtn = $("bkSubmitBtn") || bkForm.querySelector("button[type='submit']");
       const msg = $("bkFormMsg");
-      msg.style.display = "block";
-      msg.className = "bk-msg error";
-      msg.textContent = "Please enter your name and phone number.";
-      return;
-    }
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Redirecting to payment gateway…";
+      }
+      if (msg) msg.style.display = "none";
 
-    const submitBtn = $("bkForm").querySelector(".ck-book-now");
-    const msg       = $("bkFormMsg");
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Redirecting to payment…";
-    }
-    msg.style.display = "none";
+      // Save latest booking locally for the confirmation page
+      localStorage.setItem(
+        "cloudNandyLatestBooking",
+        JSON.stringify({
+          name,
+          email,
+          phone,
+          room: cart.name,
+          check_in: ci.value,
+          check_out: co.value,
+          adults: cart.adults,
+          children: cart.children,
+          requests,
+        })
+      );
 
-    // ── API base URL ───────────────────────────────────────────────────────
-    const apiBase = "https://cloudynandyhills.onrender.com";
+      try {
+        const payloadBody = JSON.stringify({
+          name,
+          email,
+          phone,
+          room: cart.name,
+          check_in: ci.value,
+          check_out: co.value,
+          adults: cart.adults,
+          children: cart.children,
+          requests,
+          total_amount: total,
+        });
 
-    // Save booking details for the payment-return page to display
-    localStorage.setItem("cloudNandyLatestBooking", JSON.stringify({
-      name, email, phone,
-      room: cart.name,
-      check_in: ci.value,
-      check_out: co.value,
-    }));
+        const MAX_RETRIES = 1;
+        const TIMEOUT_MS = 45000;
 
-    try {
-      const payloadBody = JSON.stringify({
-        name,
-        email,
-        phone,
-        room: cart.name,
-        check_in: ci.value,
-        check_out: co.value,
-        adults: cart.adults,
-        children: cart.children,
-        requests,
-        total_amount: total,
-      });
+        let resp;
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-      // Fetch with timeout + 1 automatic retry (Render free tier cold-starts)
-      const MAX_RETRIES = 1;
-      const TIMEOUT_MS  = 45000; // 45 seconds (Render can take 30-60s to wake)
-
-      let resp;
-      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-        try {
-          resp = await fetch(apiBase + "/api/payment/initiate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: payloadBody,
-            signal: controller.signal,
-          });
-          clearTimeout(timer);
-          break; // success — exit retry loop
-        } catch (fetchErr) {
-          clearTimeout(timer);
-          if (attempt < MAX_RETRIES) {
-            // Server may be cold-starting — wait 3s and retry once
-            if (submitBtn) submitBtn.textContent = "Server waking up… retrying…";
-            await new Promise(r => setTimeout(r, 3000));
-            continue;
+          try {
+            resp = await fetch(API_BASE + "/api/payment/initiate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: payloadBody,
+              signal: controller.signal,
+            });
+            clearTimeout(timer);
+            break;
+          } catch (fetchErr) {
+            clearTimeout(timer);
+            if (attempt < MAX_RETRIES) {
+              if (submitBtn) submitBtn.textContent = "Payment gateway waking up… retrying…";
+              await new Promise((r) => setTimeout(r, 3000));
+              continue;
+            }
+            throw fetchErr;
           }
-          throw fetchErr; // final attempt failed
+        }
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ error: "Server error" }));
+          throw new Error(err.error || "Could not initiate payment");
+        }
+
+        const html = await resp.text();
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (err) {
+        console.error("Payment error:", err);
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Pay & Confirm Booking";
+        }
+        if (msg) {
+          msg.style.display = "block";
+          msg.className = "bk-msg error";
+          const isNetworkErr = err.name === "AbortError" || err.message === "Failed to fetch";
+          msg.textContent = isNetworkErr
+            ? "⚠️ Could not reach the payment server. Please wait 30 seconds and try again."
+            : "⚠️ Payment error: " + err.message + ". Please try again.";
         }
       }
-
-      if (!resp.ok) {
-        // Server returned a JSON error
-        const err = await resp.json().catch(() => ({ error: "Server error" }));
-        throw new Error(err.error || "Could not initiate payment");
-      }
-
-      // The server returns an HTML page that auto-submits to CCAvenue.
-      // We render it in a full-page iframe / replace the current document.
-      const html = await resp.text();
-      document.open();
-      document.write(html);
-      document.close();
-
-    } catch (err) {
-      console.error("Payment initiation error:", err);
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Book Now";
-      }
-      msg.style.display = "block";
-      msg.className = "bk-msg error";
-      const isNetworkErr = err.name === "AbortError" || err.message === "Failed to fetch";
-      msg.textContent = isNetworkErr
-        ? "⚠️ Could not reach the payment server. It may be starting up — please wait 30 seconds and try again."
-        : "⚠️ Payment gateway error: " + err.message + ". Please try again.";
-    }
-  });
+    });
+  }
 
   // ── Init ──────────────────────────────────────────────────────────────────────
   (async function init() {
     const list = $("bkRoomList");
     try {
-      // Fetch rooms and confirmed bookings in parallel
       const [fetchedRooms] = await Promise.all([
         fetchRooms(),
         fetchConfirmedBookings(),
@@ -844,16 +912,16 @@
       allRooms = fetchedRooms;
       initFilterAndSortControls();
 
-      // If URL has a specific room preselected, automatically set cart
+      // Pre-select cart if arriving for a specific room
       if (selectedRoomFilter) {
-        const matchedRoom = allRooms.find(r => {
+        const matchedRoom = allRooms.find((r) => {
           const a = (r.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
           const b = selectedRoomFilter.toLowerCase().replace(/[^a-z0-9]/g, "");
           return a.includes(b) || b.includes(a);
         });
 
         if (matchedRoom && !isRoomBlocked(matchedRoom.name)) {
-          const defaultAdults = (paramGuests && Number(paramGuests) >= 1 && Number(paramGuests) <= 5) ? Number(paramGuests) : 2;
+          const defaultAdults = paramGuests && Number(paramGuests) >= 1 && Number(paramGuests) <= 5 ? Number(paramGuests) : 2;
           cart = {
             id: matchedRoom.id,
             name: matchedRoom.name,
@@ -868,8 +936,8 @@
 
       applyFilterAndSort();
     } catch (err) {
-      if (list) list.innerHTML = `<p class="bk-loading" style="color:red;">Could not load rooms: ${esc(err.message)}</p>`;
+      if (list)
+        list.innerHTML = `<p style="color:#fca5a5;padding:40px;text-align:center;">Could not load luxury stays: ${esc(err.message)}</p>`;
     }
   })();
-
 })();
