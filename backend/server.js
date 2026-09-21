@@ -37,11 +37,12 @@ const CCA_GATEWAY_URL  = CCAVENUE_URL || "https://secure.ccavenue.com/transactio
 const API_BASE_URL     = BACKEND_URL  || "https://cloudynandyhills.onrender.com";
 const UI_BASE_URL      = FRONTEND_URL || "https://www.cloudynandyhills.com";
 
-// ── Hard-coded production URLs (do not depend on env vars that may be missing) ──
-// CCAvenue MUST post back to the API/backend server (Render), not the website.
-const CCA_REDIRECT_DOMAIN   = API_BASE_URL;
-// After payment, customer is redirected to this page (frontend website).
-const PAYMENT_RETURN_BASE   = "https://www.cloudynandyhills.com";
+// ── Hard-coded production URLs — CCAvenue callback MUST use these exact URLs ──
+// These are fixed so a misconfigured BACKEND_URL env var can never break payments.
+// CCAvenue MUST post back to the Render API (backend), not the website frontend.
+const CCA_REDIRECT_DOMAIN = "https://cloudynandyhills.onrender.com";
+// After payment completes, customer is sent to this page on the live website.
+const PAYMENT_RETURN_BASE = "https://www.cloudynandyhills.com";
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error(
