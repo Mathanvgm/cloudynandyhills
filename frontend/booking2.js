@@ -377,6 +377,30 @@
       });
     });
 
+    // Auto-scroll booking room image sliders
+    if (window._bkSliderTimers) {
+      window._bkSliderTimers.forEach(clearInterval);
+    }
+    window._bkSliderTimers = [];
+
+    list.querySelectorAll(".bk-img-slider").forEach((sldr, sIdx) => {
+      const slides = sldr.querySelectorAll(".lightbox-trigger");
+      if (slides.length <= 1) return;
+      let isPaused = false;
+      const card = sldr.closest(".bk-room-card") || sldr;
+      card.addEventListener("mouseenter", () => { isPaused = true; });
+      card.addEventListener("mouseleave", () => { isPaused = false; });
+
+      const timer = setInterval(() => {
+        if (isPaused) return;
+        let cur = [...slides].findIndex(s => s.style.display !== "none");
+        if (cur === -1) cur = 0;
+        slides[cur].style.display = "none";
+        slides[(cur + 1) % slides.length].style.display = "block";
+      }, 3600 + sIdx * 600);
+      window._bkSliderTimers.push(timer);
+    });
+
     // Book Room buttons — skip blocked rooms
     list.querySelectorAll(".bk-book-btn").forEach(btn => {
       btn.addEventListener("click", () => {

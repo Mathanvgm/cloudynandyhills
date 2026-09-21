@@ -4583,31 +4583,176 @@ button.text-button:hover {
     inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
+.room-card-media,
 .room-card>a.lightbox-trigger {
   display: block !important;
   position: relative !important;
   aspect-ratio: 4 / 3 !important;
   overflow: hidden !important;
+  border-radius: 20px 20px 0 0 !important;
+  background: #09130f !important;
 }
 
+.room-card-media::after,
 .room-card>a.lightbox-trigger::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 50%, rgba(12, 20, 16, 0.6) 100%);
+  background: linear-gradient(180deg, transparent 55%, rgba(12, 20, 16, 0.65) 100%);
   pointer-events: none;
-  z-index: 1;
+  z-index: 2;
 }
 
+.room-carousel-track {
+  display: flex !important;
+  width: 100% !important;
+  height: 100% !important;
+  transition: transform 0.65s cubic-bezier(0.25, 1, 0.5, 1) !important;
+  will-change: transform;
+}
+
+.room-carousel-slide {
+  min-width: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+}
+
+.room-carousel-slide a.lightbox-trigger {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  cursor: zoom-in !important;
+}
+
+.room-carousel-slide img,
 .room-card>a.lightbox-trigger img {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
+  display: block !important;
   transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
 }
 
+.room-card:hover .room-carousel-slide img,
 .room-card:hover>a.lightbox-trigger img {
-  transform: scale(1.09) !important;
+  transform: scale(1.06) !important;
+}
+
+/* Nav arrows on card image */
+.room-carousel-btn {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: rgba(15, 23, 42, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.95rem !important;
+  cursor: pointer !important;
+  z-index: 5 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.25s ease, background 0.2s ease, transform 0.2s ease !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  padding: 0 !important;
+  user-select: none !important;
+}
+
+.room-card:hover .room-carousel-btn {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.room-carousel-btn:hover {
+  background: rgba(224, 142, 69, 0.95) !important;
+  border-color: #e08e45 !important;
+  transform: translateY(-50%) scale(1.1) !important;
+}
+
+.room-carousel-btn.prev {
+  left: 10px !important;
+}
+
+.room-carousel-btn.next {
+  right: 10px !important;
+}
+
+/* Slide dots */
+.room-carousel-dots {
+  position: absolute !important;
+  bottom: 12px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  z-index: 4 !important;
+  pointer-events: auto !important;
+}
+
+.room-carousel-dot {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.45) !important;
+  border: none !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+
+.room-carousel-dot:hover {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+.room-carousel-dot.active {
+  width: 18px !important;
+  border-radius: 6px !important;
+  background: #e08e45 !important;
+  box-shadow: 0 0 8px rgba(224, 142, 69, 0.6) !important;
+}
+
+/* Badge (e.g. 1 / 6) */
+.room-carousel-badge {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  background: rgba(10, 20, 16, 0.75) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #f1f5f9 !important;
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  padding: 3px 9px !important;
+  border-radius: 20px !important;
+  z-index: 4 !important;
+  pointer-events: none !important;
+}
+
+.booking-card-thumbs a.active-thumb img {
+  border-color: #e08e45 !important;
+  box-shadow: 0 0 0 2px rgba(224, 142, 69, 0.4), 0 4px 10px rgba(0, 0, 0, 0.4) !important;
+  transform: scale(1.08) !important;
+}
+
+@media (max-width: 768px) {
+  .room-carousel-btn {
+    opacity: 0.8 !important;
+    pointer-events: auto !important;
+    width: 28px !important;
+    height: 28px !important;
+  }
 }
 
 .room-body {

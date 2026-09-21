@@ -172,12 +172,39 @@ const applyRoomFiltersAndSort = () => {
   }
 
   roomGrid.innerHTML = filtered
-    .map(
-      (property, i) => `
+    .map((property, i) => {
+      const rawImages = (property.image_urls && property.image_urls.length > 0)
+        ? property.image_urls
+        : (property.image ? [property.image] : ['./image.jpg']);
+      const images = rawImages.filter(url => Boolean(url && String(url).trim()));
+      const hasMulti = images.length > 1;
+      const imagesJSON = escapeHtml(JSON.stringify(images));
+
+      return `
         <article class="room-card" data-room-card data-room="${escapeHtml(property.name)}" data-reveal data-delay="${Math.min(i, 5)}">
-          <a href="#" class="lightbox-trigger" data-images="${escapeHtml(JSON.stringify(property.image_urls || [property.image]))}" data-index="0">
-            <img src="${property.image}" alt="${escapeHtml(property.name)}" loading="lazy" />
-          </a>
+          <div class="room-card-media" data-carousel>
+            <div class="room-carousel-track">
+              ${images.map((url, imgIdx) => `
+                <div class="room-carousel-slide ${imgIdx === 0 ? 'is-active' : ''}">
+                  <a href="#" class="lightbox-trigger" data-images="${imagesJSON}" data-index="${imgIdx}" aria-label="View photo ${imgIdx + 1} of ${escapeHtml(property.name)}">
+                    <img src="${url}" alt="${escapeHtml(property.name)} - Photo ${imgIdx + 1}" loading="${imgIdx === 0 ? 'eager' : 'lazy'}" />
+                  </a>
+                </div>
+              `).join('')}
+            </div>
+            ${hasMulti ? `
+              <button class="room-carousel-btn prev" type="button" aria-label="Previous photo">&#10094;</button>
+              <button class="room-carousel-btn next" type="button" aria-label="Next photo">&#10095;</button>
+              <div class="room-carousel-dots">
+                ${images.map((_, dotIdx) => `
+                  <button class="room-carousel-dot ${dotIdx === 0 ? 'active' : ''}" type="button" data-dot="${dotIdx}" aria-label="Go to photo ${dotIdx + 1}"></button>
+                `).join('')}
+              </div>
+              <div class="room-carousel-badge">
+                <span class="curr-idx">1</span> / ${images.length}
+              </div>
+            ` : ''}
+          </div>
           <div class="room-body">
             <div>
               <a href="./property.html?id=${property.id}">
@@ -185,12 +212,12 @@ const applyRoomFiltersAndSort = () => {
               </a>
               <p class="room-card-desc">${escapeHtml(truncateText(property.description, 100))}</p>
               <div class="booking-card-thumbs" style="margin-top: 12px;">
-                ${(property.image_urls || [property.image]).slice(0, 3).map((url, idx) => `
-                  <a href="#" class="lightbox-trigger" data-images="${escapeHtml(JSON.stringify(property.image_urls || [property.image]))}" data-index="${idx}">
+                ${images.slice(0, 3).map((url, idx) => `
+                  <a href="#" class="lightbox-trigger room-thumb-link ${idx === 0 ? 'active-thumb' : ''}" data-images="${imagesJSON}" data-index="${idx}" data-thumb-idx="${idx}">
                     <img src="${url}" alt="Room preview" loading="lazy" />
                   </a>
                 `).join('')}
-                ${(property.image_urls || []).length > 3 ? `<span class="more-thumbs">+${property.image_urls.length - 3}</span>` : ''}
+                ${images.length > 3 ? `<span class="more-thumbs lightbox-trigger" data-images="${imagesJSON}" data-index="3" style="cursor:pointer;">+${images.length - 3}</span>` : ''}
               </div>
             </div>
             <div class="room-meta">
@@ -207,11 +234,171 @@ const applyRoomFiltersAndSort = () => {
             </div>
           </div>
         </article>
-      `,
-    )
+      `;
+    })
     .join("");
 
   if (window.initScrollAnimations) window.initScrollAnimations();
+  initRoomCardCarousels();
+};
+
+let roomCarouselTimers = [];
+
+const clearRoomCardCarousels = () => {
+  roomCarouselTimers.forEach(id => {
+    clearInterval(id);
+    clearTimeout(id);
+  });
+  roomCarouselTimers = [];
+};
+
+const initRoomCardCarousels = () => {
+  clearRoomCardCarousels();
+
+  const cards = document.querySelectorAll(".room-card");
+  cards.forEach((card, cardIndex) => {
+    const media = card.querySelector(".room-card-media");
+    if (!media) return;
+
+    const track = media.querySelector(".room-carousel-track");
+    const slides = media.querySelectorAll(".room-carousel-slide");
+    if (!track || slides.length <= 1) return;
+
+    const prevBtn = media.querySelector(".room-carousel-btn.prev");
+    const nextBtn = media.querySelector(".room-carousel-btn.next");
+    const dots = media.querySelectorAll(".room-carousel-dot");
+    const currBadge = media.querySelector(".curr-idx");
+    const thumbLinks = card.querySelectorAll(".room-thumb-link");
+
+    let currentIndex = 0;
+    let isHovered = false;
+    let intervalTimer = null;
+
+    const goToSlide = (newIndex) => {
+      currentIndex = (newIndex + slides.length) % slides.length;
+      track.style.transform = `translateX(-${currentIndex * 100}%)`;
+
+      // Update dots
+      dots.forEach((dot, dIdx) => {
+        dot.classList.toggle("active", dIdx === currentIndex);
+      });
+
+      // Update badge
+      if (currBadge) {
+        currBadge.textContent = currentIndex + 1;
+      }
+
+      // Update thumbnail active ring
+      thumbLinks.forEach((thumb, tIdx) => {
+        thumb.classList.toggle("active-thumb", tIdx === currentIndex);
+      });
+    };
+
+    const nextSlide = () => goToSlide(currentIndex + 1);
+    const prevSlide = () => goToSlide(currentIndex - 1);
+
+    const startTimer = () => {
+      stopTimer();
+      intervalTimer = setInterval(() => {
+        if (!isHovered) {
+          nextSlide();
+        }
+      }, 3500);
+      roomCarouselTimers.push(intervalTimer);
+    };
+
+    const stopTimer = () => {
+      if (intervalTimer) {
+        clearInterval(intervalTimer);
+        roomCarouselTimers = roomCarouselTimers.filter(id => id !== intervalTimer);
+        intervalTimer = null;
+      }
+    };
+
+    const restartTimer = () => {
+      startTimer();
+    };
+
+    // Hover pauses auto-scroll so user can view photos without jumping
+    card.addEventListener("mouseenter", () => {
+      isHovered = true;
+    });
+
+    card.addEventListener("mouseleave", () => {
+      isHovered = false;
+    });
+
+    // Arrow navigation
+    if (prevBtn) {
+      prevBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        prevSlide();
+        restartTimer();
+      });
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        nextSlide();
+        restartTimer();
+      });
+    }
+
+    // Dot navigation
+    dots.forEach((dot) => {
+      dot.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const targetIdx = parseInt(dot.dataset.dot, 10) || 0;
+        goToSlide(targetIdx);
+        restartTimer();
+      });
+    });
+
+    // Thumbnail hover / click syncs the top carousel
+    thumbLinks.forEach((thumb) => {
+      thumb.addEventListener("mouseenter", () => {
+        const thumbIdx = parseInt(thumb.dataset.thumbIdx, 10);
+        if (!isNaN(thumbIdx)) {
+          goToSlide(thumbIdx);
+        }
+      });
+    });
+
+    // Touch swipe support for mobile
+    let touchStartX = 0;
+    let touchEndX = 0;
+    media.addEventListener("touchstart", (e) => {
+      if (e.changedTouches && e.changedTouches.length > 0) {
+        touchStartX = e.changedTouches[0].screenX;
+      }
+    }, { passive: true });
+
+    media.addEventListener("touchend", (e) => {
+      if (e.changedTouches && e.changedTouches.length > 0) {
+        touchEndX = e.changedTouches[0].screenX;
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 40) {
+          if (diff > 0) {
+            nextSlide(); // swipe left -> next
+          } else {
+            prevSlide(); // swipe right -> prev
+          }
+          restartTimer();
+        }
+      }
+    }, { passive: true });
+
+    // Stagger start each card's auto scroll so cards don't all scroll at the exact same millisecond
+    const initialDelay = 1500 + (cardIndex * 700);
+    const initialTimeout = setTimeout(() => {
+      startTimer();
+    }, initialDelay);
+    roomCarouselTimers.push(initialTimeout);
+  });
 };
 
 const initRoomControls = () => {
