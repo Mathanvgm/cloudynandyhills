@@ -5,6 +5,7 @@ const multer = require("multer");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const { createClient } = require("@supabase/supabase-js");
+const { initSkyHmsSync, inventorySyncService, reservationSyncService } = require("./sync");
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -49,17 +50,18 @@ const CCA_REDIRECT_DOMAIN = "https://cloudynandyhills.onrender.com";
 // After payment completes, customer is sent to this page on the live website.
 const PAYMENT_RETURN_BASE = "https://www.cloudynandyhills.com";
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error(
-    "❌ Missing required environment variables: SUPABASE_URL, SUPABASE_SERVICE_KEY"
-  );
-  process.exit(1);
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    auth: { persistSession: false },
+  });
+} else {
+  const fallbackUrl = SUPABASE_URL || "https://wyjkehxbybkakgxdnoje.supabase.co";
+  console.warn("⚠️  SUPABASE_SERVICE_KEY missing. Initializing in local dev mode (SkyHMS in-memory/SQLite active).");
+  supabase = createClient(fallbackUrl, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dev_placeholder", {
+    auth: { persistSession: false },
+  });
 }
-
-// Service-role client → bypasses ALL Supabase RLS
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-  auth: { persistSession: false },
-});
 
 // ─── Express setup ────────────────────────────────────────────────────────────
 
@@ -283,8 +285,17 @@ app.get("/", (_req, res) => {
   res.json({
     service: "Cloud Nandy Hills API",
     status: "running",
-    version: "1.0.0",
-    endpoints: ["/api/health", "/api/properties", "/api/bookings", "/api/payment/initiate"],
+    version: "1.1.0",
+    endpoints: [
+      "/api/health",
+      "/api/properties",
+      "/api/bookings",
+      "/api/payment/initiate",
+      "/api/skyhms/status",
+      "/api/skyhms/availability",
+      "/api/skyhms/mappings",
+      "/api/skyhms/webhook"
+    ],
   });
 });
 
@@ -469,6 +480,22 @@ app.post("/api/bookings", async (req, res) => {
     return sendError(res, 400, "Missing required booking fields: name, phone, room, check_in, check_out");
   }
 
+  // ── SkyHMS & Local Availability Check ──
+  try {
+    const avail = await inventorySyncService.checkAvailability({
+      roomName: room,
+      checkIn: check_in,
+      checkOut: check_out,
+      requestedRooms: 1,
+    });
+
+    if (!avail.isAvailable) {
+      return sendError(res, 409, avail.reason || "The selected cabin is not available for these dates.");
+    }
+  } catch (availErr) {
+    console.warn("Availability pre-check warning:", availErr.message);
+  }
+
   const orderId = "CNH-" + Date.now() + "-" + Math.floor(Math.random() * 9000 + 1000);
 
   const { data: insertedRows, error: insertError } = await supabase
@@ -487,6 +514,7 @@ app.post("/api/bookings", async (req, res) => {
       status:       "pending",
       order_id:     orderId,
       booked_at:    new Date().toISOString(),
+      origin:       "CUSTOM_ENGINE",
     }])
     .select("id");
 
@@ -497,6 +525,23 @@ app.post("/api/bookings", async (req, res) => {
 
   const bookingId = insertedRows && insertedRows[0] ? insertedRows[0].id : null;
   console.log(`New booking saved — order: ${orderId}, id: ${bookingId}`);
+
+  // Non-blocking sync to SkyHMS
+  reservationSyncService.syncWebsiteBookingToSkyHms({
+    id: bookingId,
+    order_id: orderId,
+    room,
+    check_in,
+    check_out,
+    name,
+    email,
+    phone,
+    adults,
+    children,
+    total_amount,
+    requests,
+    origin: "CUSTOM_ENGINE",
+  }).catch((syncErr) => console.error("SkyHMS sync fire error:", syncErr.message));
 
   res.status(201).json({ ok: true, order_id: orderId, booking_id: bookingId });
 });
@@ -548,6 +593,23 @@ app.post("/api/payment/initiate", async (req, res) => {
     return sendError(res, 400, "Missing required booking fields.");
   }
 
+  // ── SkyHMS & Local Concurrency Check: Prevent Double Bookings ──
+  try {
+    const avail = await inventorySyncService.checkAvailability({
+      roomName: room,
+      checkIn: check_in,
+      checkOut: check_out,
+      requestedRooms: 1,
+    });
+
+    if (!avail.isAvailable) {
+      console.warn(`[DOUBLE-BOOKING-PREVENTED] Room '${room}' is unavailable for ${check_in} to ${check_out}`);
+      return sendError(res, 409, avail.reason || "The selected cabin is already booked for these dates.");
+    }
+  } catch (availErr) {
+    console.warn("Availability pre-check warning:", availErr.message);
+  }
+
   // Generate a unique order ID
   const orderId = "CNH-" + Date.now() + "-" + Math.floor(Math.random() * 9000 + 1000);
 
@@ -570,6 +632,7 @@ app.post("/api/payment/initiate", async (req, res) => {
       status: "confirmed",
       order_id: orderId,
       booked_at: new Date().toISOString(),
+      origin: "CUSTOM_ENGINE",
     }])
     .select("id");
 
@@ -710,7 +773,7 @@ app.post("/api/payment/return", express.urlencoded({ extended: false }), async (
     if (ccaStatus === "success") {
       const { data: bookingRows } = await supabase
         .from("bookings")
-        .select("name,email,phone,room,check_in,check_out,adults,children,total_amount")
+        .select("id,name,email,phone,room,check_in,check_out,adults,children,total_amount")
         .eq("order_id", orderId)
         .limit(1);
 
@@ -729,6 +792,22 @@ app.post("/api/payment/return", express.urlencoded({ extended: false }), async (
           orderId,
           tracking:  trackingId,
         }).catch(err => console.error("Email fire error:", err.message));
+
+        // ── Push Confirmed Website Booking to SkyHMS ──
+        reservationSyncService.syncWebsiteBookingToSkyHms({
+          id: b.id,
+          order_id: orderId,
+          name: b.name,
+          email: b.email,
+          phone: b.phone,
+          room: b.room,
+          check_in: b.check_in,
+          check_out: b.check_out,
+          adults: b.adults,
+          children: b.children,
+          total_amount: amount || b.total_amount,
+          origin: "CUSTOM_ENGINE",
+        }).catch(syncErr => console.error("SkyHMS auto-sync fire error:", syncErr.message));
       }
     }
   }
@@ -746,6 +825,14 @@ app.post("/api/payment/return", express.urlencoded({ extended: false }), async (
   );
 
 });
+
+// ── Initialize SkyHMS Inventory Synchronization Subsystem ──────────────────
+try {
+  initSkyHmsSync(app, supabase);
+  console.log("✅  SkyHMS Inventory Synchronization Subsystem initialized");
+} catch (syncInitErr) {
+  console.error("❌  SkyHMS sync initialization error:", syncInitErr.message);
+}
 
 // ─── Global error handler ─────────────────────────────────────────────────────
 

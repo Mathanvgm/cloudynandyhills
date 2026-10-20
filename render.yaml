@@ -30,3 +30,15 @@ services:
         value: https://www.cloudynandyhills.com
       - key: CCAVENUE_REDIRECT_DOMAIN
         value: https://cloudynandyhills.onrender.com
+      - key: SKYHMS_USE_MOCK
+        value: "true"
+      - key: SKYHMS_SYNC_ENABLED
+        value: "true"
+      - key: SKYHMS_HOTEL_CODE
+        value: "1035"
+      - key: SKYHMS_API_URL
+        value: https://bookings.skyrooms.in
+      - key: SKYHMS_API_KEY
+        sync: false
+      - key: SKYHMS_WEBHOOK_SECRET
+        sync: false

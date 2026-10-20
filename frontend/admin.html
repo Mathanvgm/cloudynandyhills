@@ -1,565 +1,1106 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cloud Nandy Admin | Property Manager</title>
-    <meta
-      name="description"
-      content="Cloud Nandy admin panel for uploading hotel properties, prices, descriptions, and images."
-    />
-    <link rel="stylesheet" href="./styles.css?v=200" />
-    <style>
-      /* ── Modern Bookings Layout ──────────────────────────────────── */
-      .bk-section-shell {
-        width: 100%;
-        max-width: 1440px;
-        margin: 0 auto;
-        padding: 24px clamp(16px, 3vw, 36px) 60px;
-        box-sizing: border-box;
-      }
 
-      .bk-top-bar {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 18px;
-        flex-wrap: wrap;
-      }
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cloud Nandy Admin | Property Manager</title>
+  <meta name="description"
+    content="Cloud Nandy admin panel for uploading hotel properties, prices, descriptions, and images." />
+  <link rel="stylesheet" href="./styles.css?v=200" />
+  <style>
+    /* ── Modern Bookings Layout ──────────────────────────────────── */
+    .bk-section-shell {
+      width: 100%;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px clamp(16px, 3vw, 36px) 60px;
+      box-sizing: border-box;
+    }
 
-      .bk-title-group .bk-eyebrow {
-        font-size: 0.72rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.09em;
-        color: #b45f3c;
-        display: block;
-        margin-bottom: 3px;
-      }
+    .bk-top-bar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
 
-      .bk-title-group h2 {
-        margin: 0;
-        font-size: clamp(1.4rem, 2.5vw, 1.85rem);
-        font-weight: 800;
-        color: #17211d;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        letter-spacing: -0.02em;
-      }
+    .bk-title-group .bk-eyebrow {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: #b45f3c;
+      display: block;
+      margin-bottom: 3px;
+    }
 
-      .bk-count-badge {
-        background: #b45f3c;
-        color: #fff;
-        font-size: 0.8rem;
-        font-weight: 800;
-        border-radius: 999px;
-        padding: 2px 10px;
-        line-height: 1.4;
-      }
+    .bk-title-group h2 {
+      margin: 0;
+      font-size: clamp(1.4rem, 2.5vw, 1.85rem);
+      font-weight: 800;
+      color: #17211d;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: -0.02em;
+    }
 
-      .bk-controls-group {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
+    .bk-count-badge {
+      background: #b45f3c;
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 2px 10px;
+      line-height: 1.4;
+    }
 
-      .bk-search-wrap {
-        position: relative;
-        display: flex;
-        align-items: center;
-      }
+    .bk-controls-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
 
-      .bk-search-wrap svg {
-        position: absolute;
-        left: 12px;
-        color: #94a3b8;
-        pointer-events: none;
-      }
+    .bk-search-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
 
-      .bk-search-wrap input {
-        padding: 9px 14px 9px 34px;
-        border: 1px solid #dde3ea;
-        border-radius: 8px;
-        font-size: 0.875rem;
-        width: clamp(180px, 25vw, 260px);
-        outline: none;
-        font-family: inherit;
-        background: #ffffff;
-        color: #17211d;
-        box-sizing: border-box;
-        transition: border-color 0.15s, box-shadow 0.15s;
-      }
+    .bk-search-wrap svg {
+      position: absolute;
+      left: 12px;
+      color: #94a3b8;
+      pointer-events: none;
+    }
 
-      .bk-search-wrap input:focus {
-        border-color: #b45f3c;
-        box-shadow: 0 0 0 3px rgba(180, 95, 60, 0.12);
-      }
+    .bk-search-wrap input {
+      padding: 9px 14px 9px 34px;
+      border: 1px solid #dde3ea;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      width: clamp(180px, 25vw, 260px);
+      outline: none;
+      font-family: inherit;
+      background: #ffffff;
+      color: #17211d;
+      box-sizing: border-box;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
 
-      .bk-refresh-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 9px 18px;
-        background: #b45f3c;
-        color: #ffffff;
-        border: none;
-        border-radius: 8px;
-        font-size: 0.875rem;
-        font-weight: 700;
-        cursor: pointer;
-        font-family: inherit;
-        white-space: nowrap;
-        transition: background 0.15s, transform 0.15s;
-      }
+    .bk-search-wrap input:focus {
+      border-color: #b45f3c;
+      box-shadow: 0 0 0 3px rgba(180, 95, 60, 0.12);
+    }
 
-      .bk-refresh-button:hover {
-        background: #9a4f32;
-        transform: translateY(-1px);
-      }
+    .bk-refresh-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      background: #b45f3c;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      transition: background 0.15s, transform 0.15s;
+    }
 
-      /* Status tabs (segmented control) */
-      .bk-tabs-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 20px;
-        flex-wrap: wrap;
-      }
+    .bk-refresh-button:hover {
+      background: #9a4f32;
+      transform: translateY(-1px);
+    }
 
-      .status-chip {
-        padding: 6px 14px;
-        border-radius: 999px;
-        font-size: 0.8rem;
-        font-weight: 700;
-        border: 1px solid #e2e8f0;
-        background: #ffffff;
-        color: #475569;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        transition: all 0.15s ease;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-      }
+    /* Status tabs (segmented control) */
+    .bk-tabs-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
 
-      .status-chip:hover {
-        border-color: #cbd5e1;
-        background: #f8fafc;
-      }
+    .status-chip {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      color: #475569;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
 
-      .status-chip.active {
-        background: #17211d !important;
-        color: #ffffff !important;
-        border-color: #17211d !important;
-      }
+    .status-chip:hover {
+      border-color: #cbd5e1;
+      background: #f8fafc;
+    }
 
-      .status-chip .chip-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        display: inline-block;
-      }
+    .status-chip.active {
+      background: #17211d !important;
+      color: #ffffff !important;
+      border-color: #17211d !important;
+    }
 
-      .dot-pending   { background: #f59e0b; }
-      .dot-confirmed { background: #10b981; }
-      .dot-cancelled { background: #ef4444; }
-      .dot-completed { background: #0284c7; }
+    .status-chip .chip-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
 
-      .status-chip .chip-count {
-        background: #f1f5f9;
-        color: #475569;
-        padding: 1px 7px;
-        border-radius: 10px;
-        font-size: 0.72rem;
-        font-weight: 800;
-      }
+    .dot-pending {
+      background: #f59e0b;
+    }
 
-      .status-chip.active .chip-count {
-        background: rgba(255,255,255,0.25);
-        color: #ffffff;
-      }
+    .dot-confirmed {
+      background: #10b981;
+    }
 
-      /* Table card */
-      .bk-table-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        overflow: hidden;
-        box-shadow: 0 4px 20px -2px rgba(0,0,0,0.05), 0 2px 6px -1px rgba(0,0,0,0.02);
-      }
+    .dot-cancelled {
+      background: #ef4444;
+    }
 
-      .bk-table-scroll {
-        width: 100%;
-        overflow-x: auto;
-      }
+    .dot-completed {
+      background: #0284c7;
+    }
 
-      .bk-table {
-        width: 100%;
-        min-width: 860px;
-        border-collapse: collapse;
-        font-size: 0.875rem;
-        font-family: inherit;
-        text-align: left;
-      }
+    .status-chip .chip-count {
+      background: #f1f5f9;
+      color: #475569;
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
 
-      .bk-table thead tr {
-        background: #f8fafc;
-        border-bottom: 2px solid #e2e8f0;
-      }
+    .status-chip.active .chip-count {
+      background: rgba(255, 255, 255, 0.25);
+      color: #ffffff;
+    }
 
-      .bk-table th {
-        padding: 14px 16px;
-        font-size: 0.72rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #64748b;
-        white-space: nowrap;
-      }
+    /* Table card */
+    .bk-table-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+    }
 
-      .bk-table tbody tr {
-        border-bottom: 1px solid #f1f5f9;
-        transition: background 0.12s ease;
-      }
+    .bk-table-scroll {
+      width: 100%;
+      overflow-x: auto;
+    }
 
-      .bk-table tbody tr:last-child {
-        border-bottom: none;
-      }
+    .bk-table {
+      width: 100%;
+      min-width: 860px;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      font-family: inherit;
+      text-align: left;
+    }
 
-      .bk-table tbody tr:hover {
-        background: #f8fafc !important;
-      }
+    .bk-table thead tr {
+      background: #f8fafc;
+      border-bottom: 2px solid #e2e8f0;
+    }
 
-      .bk-loading-cell {
-        text-align: center;
-        padding: 50px 20px;
-        color: #94a3b8;
-        font-style: italic;
-      }
-    </style>
-  <body class="admin-page">
-    <main class="admin-shell">
-      <section id="loginPanel" class="login-panel">
-        <div class="login-card" data-reveal>
-          <a class="brand admin-brand" href="./index.html" aria-label="Cloud Nandy Hills home">
+    .bk-table th {
+      padding: 14px 16px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
+    .bk-table tbody tr {
+      border-bottom: 1px solid #f1f5f9;
+      transition: background 0.12s ease;
+    }
+
+    .bk-table tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    .bk-table tbody tr:hover {
+      background: #f8fafc !important;
+    }
+
+    .bk-loading-cell {
+      text-align: center;
+      padding: 50px 20px;
+      color: #94a3b8;
+      font-style: italic;
+    }
+
+    /* ── SkyHMS Sync Section ───────────────────────────────────── */
+    .sync-hero-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 22px 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    }
+
+    .sync-hero-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .sync-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .badge-live {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+
+    .badge-mock {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .badge-offline {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    .sync-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .sync-metric-box {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 18px 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+
+    .sync-metric-box span {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .sync-metric-box strong {
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: #17211d;
+    }
+
+    .sync-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .sync-btn-primary {
+      background: #b45f3c;
+      color: #ffffff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.15s, transform 0.15s;
+      font-family: inherit;
+    }
+
+    .sync-btn-primary:hover {
+      background: #9a4f32;
+      transform: translateY(-1px);
+    }
+
+    .sync-btn-secondary {
+      background: #ffffff;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .sync-btn-secondary:hover {
+      border-color: #94a3b8;
+      background: #f8fafc;
+    }
+
+    .sync-alert-bar {
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .alert-success {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    .alert-error {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+  </style>
+
+<body class="admin-page">
+  <main class="admin-shell">
+    <section id="loginPanel" class="login-panel">
+      <div class="login-card" data-reveal>
+        <a class="brand admin-brand" href="./index.html" aria-label="Cloud Nandy Hills home">
+          <img src="./image.jpg" alt="Cloud Nandy Logo" class="brand-logo" />
+          <span>Cloud Nandy Hills</span>
+        </a>
+        <p class="eyebrow">Admin access</p>
+        <h1>Property Manager</h1>
+        <p class="login-copy">
+          Sign in to upload properties, manage room images, and publish new
+          options to the booking website.
+        </p>
+
+        <form id="loginForm" class="login-form">
+          <label>
+            Username
+            <input id="adminUsername" type="text" autocomplete="username" placeholder="admin" required />
+          </label>
+          <label>
+            Password
+            <input id="adminPassword" type="password" autocomplete="current-password" placeholder="Enter password"
+              required />
+          </label>
+          <p id="loginMessage" class="form-message" role="status"></p>
+          <button class="button primary full" type="submit">Login</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="dashboardPanel" class="dashboard-panel" hidden>
+      <header class="dashboard-header" data-reveal>
+        <div class="header-brand-wrap">
+          <a class="brand dashboard-brand" href="./index.html" aria-label="Cloud Nandy Hills home">
             <img src="./image.jpg" alt="Cloud Nandy Logo" class="brand-logo" />
             <span>Cloud Nandy Hills</span>
           </a>
-          <p class="eyebrow">Admin access</p>
-          <h1>Property Manager</h1>
-          <p class="login-copy">
-            Sign in to upload properties, manage room images, and publish new
-            options to the booking website.
-          </p>
+          <p class="admin-subtitle">Admin dashboard</p>
+        </div>
 
-          <form id="loginForm" class="login-form">
-            <label>
-              Username
-              <input id="adminUsername" type="text" autocomplete="username" placeholder="admin" required />
-            </label>
-            <label>
-              Password
-              <input
-                id="adminPassword"
-                type="password"
-                autocomplete="current-password"
-                placeholder="Enter password"
-                required
-              />
-            </label>
-            <p id="loginMessage" class="form-message" role="status"></p>
-            <button class="button primary full" type="submit">Login</button>
-          </form>
+        <nav class="center-pill-nav" aria-label="Admin Navigation">
+          <a class="pill-nav-item" href="./index.html">View Website</a>
+          <button id="navBookingTab" class="pill-nav-item">Booking</button>
+          <button id="navSyncTab" class="pill-nav-item">
+            <span style="display:inline-flex;align-items:center;gap:6px;">
+              <span>Inventory Sync</span>
+              <span id="syncPillStatus"
+                style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"
+                title="SkyHMS Synced"></span>
+            </span>
+          </button>
+          <button id="navEditTab" class="pill-nav-item active">Edit Website</button>
+        </nav>
+
+        <div class="dashboard-actions">
+          <button id="logoutButton" class="button dark logout-btn" type="button">Logout</button>
+        </div>
+      </header>
+
+      <section class="admin-overview" aria-label="Admin overview" data-reveal data-delay="1">
+        <div>
+          <span>Total Properties</span>
+          <strong id="totalProperties">0</strong>
+        </div>
+        <div>
+          <span>Latest Upload</span>
+          <strong id="latestUpload">None</strong>
+        </div>
+        <div>
+          <span>Total Bookings</span>
+          <strong id="totalBookingsOverview">—</strong>
+        </div>
+        <div>
+          <span>Currency</span>
+          <strong>INR</strong>
         </div>
       </section>
 
-      <section id="dashboardPanel" class="dashboard-panel" hidden>
-        <header class="dashboard-header" data-reveal>
-          <div class="header-brand-wrap">
-            <a class="brand dashboard-brand" href="./index.html" aria-label="Cloud Nandy Hills home">
-              <img src="./image.jpg" alt="Cloud Nandy Logo" class="brand-logo" />
-              <span>Cloud Nandy Hills</span>
-            </a>
-            <p class="admin-subtitle">Admin dashboard</p>
+      <!-- ── EDIT WEBSITE TAB ─────────────────────────────────── -->
+      <section id="editTab" class="admin-workspace">
+        <form id="propertyForm" class="admin-form" data-reveal data-delay="2">
+          <div class="section-heading compact">
+            <p class="eyebrow">New listing</p>
+            <h2>Upload property</h2>
           </div>
 
-          <nav class="center-pill-nav" aria-label="Admin Navigation">
-            <a class="pill-nav-item" href="./index.html">View Website</a>
-            <button id="navBookingTab" class="pill-nav-item">Booking</button>
-            <button id="navEditTab" class="pill-nav-item active">Edit Website</button>
-          </nav>
-
-          <div class="dashboard-actions">
-            <button id="logoutButton" class="button dark logout-btn" type="button">Logout</button>
-          </div>
-        </header>
-
-        <section class="admin-overview" aria-label="Admin overview" data-reveal data-delay="1">
-          <div>
-            <span>Total Properties</span>
-            <strong id="totalProperties">0</strong>
-          </div>
-          <div>
-            <span>Latest Upload</span>
-            <strong id="latestUpload">None</strong>
-          </div>
-          <div>
-            <span>Total Bookings</span>
-            <strong id="totalBookingsOverview">—</strong>
-          </div>
-          <div>
-            <span>Currency</span>
-            <strong>INR</strong>
-          </div>
-        </section>
-
-        <!-- ── EDIT WEBSITE TAB ─────────────────────────────────── -->
-        <section id="editTab" class="admin-workspace">
-          <form id="propertyForm" class="admin-form" data-reveal data-delay="2">
-            <div class="section-heading compact">
-              <p class="eyebrow">New listing</p>
-              <h2>Upload property</h2>
-            </div>
-
-            <div class="form-row">
-              <label>
-                Property name
-                <input id="propertyName" type="text" placeholder="Premium Family Room" required />
-              </label>
-              <label>
-                Price per night
-                <input id="propertyPrice" type="number" min="1" placeholder="15999" required />
-              </label>
-            </div>
-
-            <div class="form-row">
-              <label>
-                Property type
-                <select id="propertyType" required>
-                  <option value="Room">Room</option>
-                  <option value="Suite">Suite</option>
-                  <option value="Villa">Villa</option>
-                  <option value="Apartment">Apartment</option>
-                </select>
-              </label>
-              <label>
-                Guests Allowed
-                <input id="propertyGuestsAllowed" type="number" min="1" placeholder="2" />
-              </label>
-            </div>
-
-            <div class="form-row">
-              <label>
-                Check-in time
-                <input id="propertyCheckIn" type="text" placeholder="e.g. 01:00 PM" />
-              </label>
-              <label>
-                Check-out time
-                <input id="propertyCheckOut" type="text" placeholder="e.g. 11:00 AM" />
-              </label>
-            </div>
-
-            <div class="form-row">
-              <label>
-                Images
-                <input
-                  id="propertyImage"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  multiple
-                  required
-                />
-              </label>
-            </div>
-
+          <div class="form-row">
             <label>
-              Description
-              <textarea
-                id="propertyDescription"
-                rows="4"
-                placeholder="Add beds, view, facilities, and other important details..."
-                required
-              ></textarea>
+              Property name
+              <input id="propertyName" type="text" placeholder="Premium Family Room" required />
             </label>
-
-            <div class="image-preview" id="imagePreview">
-              <span>Image previews will appear here</span>
-            </div>
-
-            <p id="adminMessage" class="form-message" role="status"></p>
-            <div class="admin-form-actions">
-              <button id="propertySubmitButton" class="button primary full" type="submit">
-                Publish Property
-              </button>
-              <button id="cancelEditButton" class="button muted full" type="button" hidden>
-                Cancel Edit
-              </button>
-            </div>
-          </form>
-
-          <div class="admin-list-wrap" data-reveal data-delay="3">
-            <div class="admin-list-head">
-              <div>
-                <p class="eyebrow">Inventory</p>
-                <h3>Uploaded properties</h3>
-              </div>
-              <button id="clearProperties" class="text-button" type="button">Refresh list</button>
-            </div>
-            <div id="propertyList" class="property-list" aria-live="polite"></div>
+            <label>
+              Price per night
+              <input id="propertyPrice" type="number" min="1" placeholder="15999" required />
+            </label>
           </div>
-        </section>
 
-        <!-- ── BOOKINGS TAB ─────────────────────────────────────── -->
-        <section id="bookingTab" class="bk-section-shell" hidden>
-
-          <!-- Top Toolbar -->
-          <div class="bk-top-bar">
-            <div class="bk-title-group">
-              <span class="bk-eyebrow">RESERVATIONS</span>
-              <h2>
-                All Bookings
-                <span id="bookingsCount" class="bk-count-badge">0</span>
-              </h2>
-            </div>
-            <div class="bk-controls-group">
-              <div class="bk-search-wrap">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-                <input id="bookingsSearch" type="search" placeholder="Search name, phone, room…" />
-              </div>
-              <select id="bookingsStatusFilter" style="display:none;" aria-label="Status filter">
-                <option value="">All Status</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="completed">Completed</option>
+          <div class="form-row">
+            <label>
+              Property type
+              <select id="propertyType" required>
+                <option value="Room">Room</option>
+                <option value="Suite">Suite</option>
+                <option value="Villa">Villa</option>
+                <option value="Apartment">Apartment</option>
               </select>
-              <button id="refreshBookings" class="bk-refresh-button" type="button">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </label>
+            <label>
+              Guests Allowed
+              <input id="propertyGuestsAllowed" type="number" min="1" placeholder="2" />
+            </label>
+          </div>
+
+          <div class="form-row">
+            <label>
+              Check-in time
+              <input id="propertyCheckIn" type="text" placeholder="e.g. 01:00 PM" />
+            </label>
+            <label>
+              Check-out time
+              <input id="propertyCheckOut" type="text" placeholder="e.g. 11:00 AM" />
+            </label>
+          </div>
+
+          <div class="form-row">
+            <label>
+              Images
+              <input id="propertyImage" type="file" accept="image/png,image/jpeg,image/webp" multiple required />
+            </label>
+          </div>
+
+          <label>
+            Description
+            <textarea id="propertyDescription" rows="4"
+              placeholder="Add beds, view, facilities, and other important details..." required></textarea>
+          </label>
+
+          <div class="image-preview" id="imagePreview">
+            <span>Image previews will appear here</span>
+          </div>
+
+          <p id="adminMessage" class="form-message" role="status"></p>
+          <div class="admin-form-actions">
+            <button id="propertySubmitButton" class="button primary full" type="submit">
+              Publish Property
+            </button>
+            <button id="cancelEditButton" class="button muted full" type="button" hidden>
+              Cancel Edit
+            </button>
+          </div>
+        </form>
+
+        <div class="admin-list-wrap" data-reveal data-delay="3">
+          <div class="admin-list-head">
+            <div>
+              <p class="eyebrow">Inventory</p>
+              <h3>Uploaded properties</h3>
+            </div>
+            <button id="clearProperties" class="text-button" type="button">Refresh list</button>
+          </div>
+          <div id="propertyList" class="property-list" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <!-- ── BOOKINGS TAB ─────────────────────────────────────── -->
+      <section id="bookingTab" class="bk-section-shell" hidden>
+
+        <!-- Top Toolbar -->
+        <div class="bk-top-bar">
+          <div class="bk-title-group">
+            <span class="bk-eyebrow">RESERVATIONS</span>
+            <h2>
+              All Bookings
+              <span id="bookingsCount" class="bk-count-badge">0</span>
+            </h2>
+          </div>
+          <div class="bk-controls-group">
+            <div class="bk-search-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input id="bookingsSearch" type="search" placeholder="Search name, phone, room…" />
+            </div>
+            <select id="bookingsStatusFilter" style="display:none;" aria-label="Status filter">
+              <option value="">All Status</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="completed">Completed</option>
+            </select>
+            <button id="refreshBookings" class="bk-refresh-button" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Status Filter Tabs (Segmented Pills) -->
+        <div id="bookingStatusTabs" class="bk-tabs-row">
+          <button type="button" class="status-chip active" data-status="">
+            All <span class="chip-count" id="countAll">0</span>
+          </button>
+          <button type="button" class="status-chip" data-status="confirmed">
+            <span class="chip-dot dot-confirmed"></span>Confirmed <span class="chip-count" id="countConfirmed">0</span>
+          </button>
+          <button type="button" class="status-chip" data-status="cancelled">
+            <span class="chip-dot dot-cancelled"></span>Cancelled <span class="chip-count" id="countCancelled">0</span>
+          </button>
+          <button type="button" class="status-chip" data-status="completed">
+            <span class="chip-dot dot-completed"></span>Completed <span class="chip-count" id="countCompleted">0</span>
+          </button>
+        </div>
+
+        <p id="bookingsMessage" class="bookings-msg" hidden></p>
+
+        <!-- Table Card -->
+        <div class="bk-table-card">
+          <div class="bk-table-scroll">
+            <table class="bk-table">
+              <thead>
+                <tr>
+                  <th>Guest Name</th>
+                  <th>Status</th>
+                  <th>Room</th>
+                  <th>Check-In / Out</th>
+                  <th>Amount</th>
+                  <th>Phone</th>
+                  <th>Booked At</th>
+                  <th style="text-align:center;width:70px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="bookingsTbody">
+                <tr>
+                  <td colspan="8" class="bk-loading-cell">Loading bookings…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ── INVENTORY SYNC TAB (SkyHMS Integration) ─────────────── -->
+      <section id="syncTab" class="bk-section-shell" hidden>
+        <div class="bk-top-bar">
+          <div class="bk-title-group">
+            <span class="bk-eyebrow">PMS INTEGRATION</span>
+            <h2>SkyHMS Inventory Synchronization</h2>
+          </div>
+          <div class="sync-actions-row" style="margin-bottom:0;">
+            <button id="btnRefreshSync" class="sync-btn-secondary" type="button">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+              </svg>
+              Refresh
+            </button>
+            <button id="btnTestConn" class="sync-btn-secondary" type="button">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+              </svg>
+              Test Connectivity
+            </button>
+            <button id="btnReconcileNow" class="sync-btn-primary" type="button">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
+              </svg>
+              Reconcile Inventory
+            </button>
+        </div>
+
+        <!-- API Server Selector & Connectivity Banner -->
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:0.82rem;font-weight:700;color:#475569;text-transform:uppercase;">Connected Backend API:</span>
+            <code id="lblCurrentApiBase" style="background:#e2e8f0;color:#0f172a;padding:3px 10px;border-radius:6px;font-size:0.85rem;font-weight:700;">http://localhost:3000</code>
+            <span id="apiStatusPill" style="font-size:0.75rem;padding:3px 8px;border-radius:12px;font-weight:700;background:#dcfce7;color:#166534;">● Online</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button id="btnSwitchLocal" type="button" class="sync-btn-secondary" style="padding:5px 12px;font-size:0.8rem;">
+              Local (localhost:3000)
+            </button>
+            <button id="btnSwitchRender" type="button" class="sync-btn-secondary" style="padding:5px 12px;font-size:0.8rem;">
+              Render Cloud
+            </button>
+            <button id="btnCustomApi" type="button" class="sync-btn-secondary" style="padding:5px 12px;font-size:0.8rem;">
+              Custom URL…
+            </button>
+          </div>
+        </div>
+
+        <div id="syncMessage" class="sync-alert-bar"></div>
+
+        <!-- Connection Status Overview -->
+        <div class="sync-hero-card">
+          <div class="sync-hero-top">
+            <div>
+              <span id="skyStatusBadge" class="sync-badge badge-mock">● MOCK / SANDBOX ACTIVE</span>
+              <span style="margin-left:12px;font-size:0.88rem;color:#475569;">
+                PMS Gateway: <strong id="skyModeBadge">Mock PMS</strong> &middot; Property Code: <code
+                  id="skyHotelCode">CLOUDNANDY_KODAI</code>
+              </span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <label
+                style="font-size:0.85rem;color:#475569;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="chkDryRun" />
+                <span>Dry-Run / Preview Mode</span>
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+            <div>
+              <small style="color:#64748b;font-size:0.8rem;text-transform:uppercase;font-weight:700;">Last
+                Synchronization Cycle</small>
+              <div id="skyLastSync" style="font-weight:700;color:#17211d;margin-top:2px;">Not executed yet</div>
+            </div>
+            <div>
+              <small style="color:#64748b;font-size:0.8rem;text-transform:uppercase;font-weight:700;">Reconciliation
+                Status</small>
+              <div id="skySyncState" style="font-weight:700;color:#059669;margin-top:2px;">Idle / Ready</div>
+            </div>
+            <div>
+              <button id="btnRetryFailed" class="sync-btn-secondary" type="button"
+                style="padding:6px 14px;font-size:0.82rem;">
+                Retry Failed Queue
+              </button>
+              <button id="btnSimulateBooking" class="sync-btn-secondary" type="button"
+                style="padding:6px 14px;font-size:0.82rem;margin-left:6px;">
+                Simulate SkyHMS Booking
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Discrepancy Alerts Box (Hidden when healthy) -->
+        <div id="discrepanciesCard" class="sync-hero-card"
+          style="display:none;border-color:#fde68a;background:#fffdf5;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <span style="font-size:1.2rem;">⚠️</span>
+            <h3 style="margin:0;font-size:1.05rem;color:#92400e;font-weight:800;">Inventory Discrepancy Alerts</h3>
+          </div>
+          <div id="discrepanciesList"></div>
+        </div>
+
+        <!-- Metrics Row -->
+        <div class="sync-metrics-grid">
+          <div class="sync-metric-box">
+            <span>Synced Bookings</span>
+            <strong id="countSynced" style="color:#059669;">0</strong>
+          </div>
+          <div class="sync-metric-box">
+            <span>Pending Sync</span>
+            <strong id="countPending" style="color:#d97706;">0</strong>
+          </div>
+          <div class="sync-metric-box">
+            <span>Failed / Quarantined</span>
+            <strong id="countFailed" style="color:#dc2626;">0</strong>
+          </div>
+          <div class="sync-metric-box">
+            <span>Active Room Mappings</span>
+            <strong id="countMappings" style="color:#2563eb;">0</strong>
+          </div>
+          <div class="sync-metric-box">
+            <span>SkyHMS Blocked Dates</span>
+            <strong id="countAutoBlocks" style="color:#7c3aed;">0</strong>
+          </div>
+        </div>
+
+        <!-- Section: Automated SkyRooms Sync (Live Property 1035) -->
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:24px 28px;margin-bottom:28px;">
+          <div
+            style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <h3 style="margin:0;font-size:1.15rem;font-weight:800;color:#17211d;">⚡ Automated Inventory
+                  Synchronization</h3>
+                <span id="autoSyncBadge" class="sync-badge badge-synced" style="font-size:0.75rem;">SCHEDULER
+                  RUNNING</span>
+              </div>
+              <small style="color:#64748b;display:block;margin-top:4px;">
+                Continuously scans the live SkyRooms booking link (<a
+                  href="https://bookings.skyrooms.in/roombooking?bkgpropid=1035&&bkgrooms=1" target="_blank"
+                  rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;">Property 1035</a>) to
+                detect sold-out dates across all 5 rooms and automatically lock dates on Cloudnandy.
+              </small>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <select id="autoSyncDays"
+                style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.85rem;background:#fff;font-family:inherit;">
+                <option value="30">Next 30 Days</option>
+                <option value="60">Next 60 Days</option>
+                <option value="14">Next 14 Days</option>
+              </select>
+              <button id="btnRunAutoSync" class="sync-btn-primary" type="button"
+                style="padding:8px 18px;font-size:0.85rem;background:#059669;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                 </svg>
-                <span>Refresh</span>
+                Run Auto-Sync Now
+              </button>
+              <button id="btnViewAutoBlocks" class="sync-btn-secondary" type="button"
+                style="padding:8px 14px;font-size:0.85rem;">
+                View Auto-Blocked Dates (<span id="autoBlocksBtnCount">0</span>)
               </button>
             </div>
           </div>
 
-          <!-- Status Filter Tabs (Segmented Pills) -->
-          <div id="bookingStatusTabs" class="bk-tabs-row">
-            <button type="button" class="status-chip active" data-status="">
-              All <span class="chip-count" id="countAll">0</span>
-            </button>
-            <button type="button" class="status-chip" data-status="confirmed">
-              <span class="chip-dot dot-confirmed"></span>Confirmed <span class="chip-count" id="countConfirmed">0</span>
-            </button>
-            <button type="button" class="status-chip" data-status="cancelled">
-              <span class="chip-dot dot-cancelled"></span>Cancelled <span class="chip-count" id="countCancelled">0</span>
-            </button>
-            <button type="button" class="status-chip" data-status="completed">
-              <span class="chip-dot dot-completed"></span>Completed <span class="chip-count" id="countCompleted">0</span>
-            </button>
+          <div
+            style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;font-size:0.85rem;">
+            <div>
+              <span style="color:#64748b;">Last Auto-Sweep:</span>
+              <strong id="autoSyncLastRun" style="color:#17211d;margin-left:6px;">Never</strong>
+            </div>
+            <div>
+              <span style="color:#64748b;">Engine Status:</span>
+              <strong id="autoSyncStatus" style="color:#059669;margin-left:6px;">Idle / Ready</strong>
+            </div>
+            <div>
+              <span style="color:#64748b;">Schedule:</span>
+              <strong style="color:#17211d;margin-left:6px;">Automatic every 15 mins (Background Worker)</strong>
+            </div>
           </div>
 
-          <p id="bookingsMessage" class="bookings-msg" hidden></p>
-
-          <!-- Table Card -->
-          <div class="bk-table-card">
+          <!-- Auto-Blocked Dates Drawer (Hidden by default) -->
+          <div id="autoBlocksDrawer" style="display:none;margin-top:18px;">
+            <h4 style="margin:0 0 10px;font-size:0.95rem;font-weight:700;color:#334155;">Active SkyHMS Blocked Dates on
+              Cloudnandy</h4>
             <div class="bk-table-scroll">
               <table class="bk-table">
                 <thead>
                   <tr>
-                    <th>Guest Name</th>
+                    <th>Room Name</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                    <th>Order ID</th>
                     <th>Status</th>
-                    <th>Room</th>
-                    <th>Check-In / Out</th>
-                    <th>Amount</th>
-                    <th>Phone</th>
-                    <th>Booked At</th>
-                    <th style="text-align:center;width:70px;">Actions</th>
+                    <th>Source</th>
                   </tr>
                 </thead>
-                <tbody id="bookingsTbody">
-                  <tr><td colspan="8" class="bk-loading-cell">Loading bookings…</td></tr>
+                <tbody id="autoBlocksTbody">
+                  <tr>
+                    <td colspan="6" class="bk-loading-cell">No active automated blocks found.</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
+        </div>
 
-        </section>
-
-      </section>
-    </main>
-
-    <!-- ── Booking Detail Modal ──────────────────────────────────────── -->
-    <div id="bookingDetailOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
-      <div id="bookingDetailModal" style="background:#fff;border-radius:18px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.22);font-family:inherit;position:relative;">
-
-        <!-- Modal Header -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:24px 28px 0;">
-          <div>
-            <p style="margin:0;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#b45f3c;">BOOKING DETAILS</p>
-            <h2 id="bdmTitle" style="margin:4px 0 0;font-size:1.4rem;font-weight:800;color:#17211d;"></h2>
+        <!-- Section: Room Mappings Configuration -->
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:24px 28px;margin-bottom:28px;">
+          <div
+            style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h3 style="margin:0;font-size:1.15rem;font-weight:800;color:#17211d;">Room Mappings (Cloudnandy ↔ SkyHMS)
+              </h3>
+              <small style="color:#64748b;">Explicit 1:1 mapping between local property listings and SkyHMS room type
+                codes to prevent double bookings.</small>
+            </div>
+            <button id="btnNewMapping" class="sync-btn-primary" type="button"
+              style="padding:8px 16px;font-size:0.82rem;">
+              + Add Room Mapping
+            </button>
           </div>
-          <button id="bookingDetailClose" aria-label="Close" style="background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#64748b;transition:background 0.15s;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+
+          <div class="bk-table-scroll">
+            <table class="bk-table">
+              <thead>
+                <tr>
+                  <th>Cloudnandy Room</th>
+                  <th>SkyHMS Room Code</th>
+                  <th>Rate Plan</th>
+                  <th style="text-align:center;">Sellable Units</th>
+                  <th>Sync Mode</th>
+                  <th>Last Verified</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="roomMappingsTbody">
+                <tr>
+                  <td colspan="7" class="bk-loading-cell">Loading room mappings…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <!-- Modal Body -->
-        <div id="bookingDetailBody" style="padding:20px 28px 28px;"></div>
+        <!-- Section: Integration Audit Logs -->
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:24px 28px;">
+          <div
+            style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h3 style="margin:0;font-size:1.15rem;font-weight:800;color:#17211d;">Live Synchronization Audit Trail
+              </h3>
+              <small style="color:#64748b;">Real-time event stream of webhooks, inventory adjustments, and
+                double-booking preventions.</small>
+            </div>
+            <div>
+              <select id="logFilterLevel"
+                style="padding:7px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.85rem;background:#fff;font-family:inherit;">
+                <option value="all">All Severities</option>
+                <option value="error">Errors Only</option>
+                <option value="warn">Warnings &amp; Errors</option>
+                <option value="info">Info</option>
+              </select>
+            </div>
+          </div>
 
-        <!-- Modal Footer -->
-        <div style="padding:0 28px 28px;display:flex;justify-content:flex-end;gap:10px;">
-          <button id="bookingDetailDownload" style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;background:#17211d;color:#fff;border:none;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Download PDF
-          </button>
-          <button id="bookingDetailCloseBtn" style="padding:11px 22px;background:#f1f5f9;color:#17211d;border:none;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit;">Close</button>
+          <div class="bk-table-scroll">
+            <table class="bk-table">
+              <thead>
+                <tr>
+                  <th style="width:110px;">Timestamp</th>
+                  <th style="width:80px;">Level</th>
+                  <th style="width:180px;">Action</th>
+                  <th>Details &amp; Payload</th>
+                </tr>
+              </thead>
+              <tbody id="syncLogsTbody">
+                <tr>
+                  <td colspan="4" class="bk-loading-cell">Loading sync audit logs…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- ── Booking Detail Modal ──────────────────────────────────────── -->
+  <div id="bookingDetailOverlay"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
+    <div id="bookingDetailModal"
+      style="background:#fff;border-radius:18px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.22);font-family:inherit;position:relative;">
+
+      <!-- Modal Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:24px 28px 0;">
+        <div>
+          <p
+            style="margin:0;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#b45f3c;">
+            BOOKING DETAILS</p>
+          <h2 id="bdmTitle" style="margin:4px 0 0;font-size:1.4rem;font-weight:800;color:#17211d;"></h2>
+        </div>
+        <button id="bookingDetailClose" aria-label="Close"
+          style="background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#64748b;transition:background 0.15s;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div id="bookingDetailBody" style="padding:20px 28px 28px;"></div>
+
+      <!-- Modal Footer -->
+      <div style="padding:0 28px 28px;display:flex;justify-content:flex-end;gap:10px;">
+        <button id="bookingDetailDownload"
+          style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;background:#17211d;color:#fff;border:none;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Download PDF
+        </button>
+        <button id="bookingDetailCloseBtn"
+          style="padding:11px 22px;background:#f1f5f9;color:#17211d;border:none;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit;">Close</button>
       </div>
     </div>
+  </div>
 
-    <!-- Print-only styles for PDF export -->
-    <style>
-      #bookingPrintArea { display: none; }
-    </style>
-    <div id="bookingPrintArea"></div>
+  <!-- ── Add/Edit Room Mapping Modal ────────────────────────────── -->
+  <div id="mappingModalOverlay"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9100;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
+    <div
+      style="background:#fff;border-radius:18px;width:100%;max-width:540px;box-shadow:0 24px 80px rgba(0,0,0,0.22);font-family:inherit;padding:28px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <p
+            style="margin:0;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#b45f3c;">
+            PMS CONFIGURATION</p>
+          <h2 style="margin:4px 0 0;font-size:1.35rem;font-weight:800;color:#17211d;">Add Room Mapping</h2>
+        </div>
+        <button id="mappingModalClose" type="button"
+          style="background:none;border:none;cursor:pointer;color:#64748b;">✕</button>
+      </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./supabase-config.js?v=12"></script>
-    <script src="./admin.js?v=12"></script>
-    <script src="./admin-bookings.js?v=10"></script>
-    <script src="./animations.js?v=12"></script>
-    <script>
-      // ── Tab switching ─────────────────────────────────────────
-      const navBookingTab = document.getElementById("navBookingTab");
-      const navEditTab    = document.getElementById("navEditTab");
-      const editTab       = document.getElementById("editTab");
-      const bookingTab    = document.getElementById("bookingTab");
+      <form id="mappingForm">
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:0.85rem;font-weight:700;color:#334155;margin-bottom:6px;">Cloudnandy
+            Room Name</label>
+          <input id="mapPropName" type="text" placeholder="e.g. Premium Family Room" required
+            style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;box-sizing:border-box;" />
+        </div>
 
-      function showEditTab() {
-        editTab.hidden = false;
-        bookingTab.hidden = true;
-        document.querySelector('.admin-overview').hidden = false;
-        navEditTab.classList.add("active");
-        navBookingTab.classList.remove("active");
-      }
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:0.85rem;font-weight:700;color:#334155;margin-bottom:6px;">SkyHMS Room
+            Type ID / Code</label>
+          <input id="mapSkyHmsId" type="text" placeholder="e.g. SKY_PREM_CABIN" required
+            style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;box-sizing:border-box;" />
+        </div>
 
-      function showBookingTab() {
-        editTab.hidden = true;
-        bookingTab.hidden = false;
-        document.querySelector('.admin-overview').hidden = true;
-        navBookingTab.classList.add("active");
-        navEditTab.classList.remove("active");
-        if (window.loadAdminBookings) window.loadAdminBookings();
-      }
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:0.85rem;font-weight:700;color:#334155;margin-bottom:6px;">Rate Plan
+              ID</label>
+            <input id="mapRatePlan" type="text" value="STANDARD" placeholder="STANDARD"
+              style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.85rem;font-weight:700;color:#334155;margin-bottom:6px;">Total
+              Units</label>
+            <input id="mapTotalInventory" type="number" min="1" value="1" required
+              style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;box-sizing:border-box;" />
+          </div>
+        </div>
 
-      navBookingTab.addEventListener("click", showBookingTab);
-      navEditTab.addEventListener("click", showEditTab);
-    </script>
-  </body>
+        <div style="margin-bottom:24px;">
+          <label style="display:block;font-size:0.85rem;font-weight:700;color:#334155;margin-bottom:6px;">Sync
+            Mode</label>
+          <select id="mapSyncMode"
+            style="width:100%;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;background:#fff;box-sizing:border-box;">
+            <option value="two_way">Two-Way (Cloudnandy ↔ SkyHMS)</option>
+            <option value="push_only">Push Only (Website → SkyHMS)</option>
+            <option value="pull_only">Pull Only (SkyHMS → Website)</option>
+          </select>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:12px;">
+          <button type="submit" class="sync-btn-primary">Save Mapping</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase-config.js?v=12"></script>
+  <script src="./admin.js?v=12"></script>
+  <script src="./admin-bookings.js?v=10"></script>
+  <script src="./admin-sync.js?v=1"></script>
+  <script src="./animations.js?v=12"></script>
+  <script>
+    // ── Tab switching ─────────────────────────────────────────
+    const navBookingTab = document.getElementById("navBookingTab");
+    const navEditTab = document.getElementById("navEditTab");
+    const navSyncTab = document.getElementById("navSyncTab");
+    const editTab = document.getElementById("editTab");
+    const bookingTab = document.getElementById("bookingTab");
+    const syncTab = document.getElementById("syncTab");
+
+    function showEditTab() {
+      editTab.hidden = false;
+      bookingTab.hidden = true;
+      if (syncTab) syncTab.hidden = true;
+      document.querySelector('.admin-overview').hidden = false;
+      navEditTab.classList.add("active");
+      navBookingTab.classList.remove("active");
+      if (navSyncTab) navSyncTab.classList.remove("active");
+    }
+
+    function showBookingTab() {
+      editTab.hidden = true;
+      bookingTab.hidden = false;
+      if (syncTab) syncTab.hidden = true;
+      document.querySelector('.admin-overview').hidden = true;
+      navBookingTab.classList.add("active");
+      navEditTab.classList.remove("active");
+      if (navSyncTab) navSyncTab.classList.remove("active");
+      if (window.loadAdminBookings) window.loadAdminBookings();
+    }
+
+    function showSyncTab() {
+      editTab.hidden = true;
+      bookingTab.hidden = true;
+      if (syncTab) syncTab.hidden = false;
+      document.querySelector('.admin-overview').hidden = true;
+      if (navSyncTab) navSyncTab.classList.add("active");
+      navBookingTab.classList.remove("active");
+      navEditTab.classList.remove("active");
+      if (window.loadAdminSyncDashboard) window.loadAdminSyncDashboard();
+    }
+
+    navBookingTab.addEventListener("click", showBookingTab);
+    navEditTab.addEventListener("click", showEditTab);
+    if (navSyncTab) navSyncTab.addEventListener("click", showSyncTab);
+  </script>
+</body>
+
 </html>
