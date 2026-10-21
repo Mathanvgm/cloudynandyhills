@@ -3,10 +3,7 @@ const ADMIN_PASSWORD = "cloud123";
 const SESSION_KEY = "cloudNandyAdminSession";
 
 // ─── API base URL ─────────────────────────────────────────────────────────────
-// In production, replace this with your Render API URL, e.g.:
-   const API_BASE = "https://cloudynandyhills.onrender.com";
-// During local development, the API runs on http://localhost:3000
-//const API_BASE = window.CLOUD_NANDY_API_BASE || "http://localhost:3000";
+const API_BASE = window.CLOUD_NANDY_API_URL || "https://cloudynandyhills.onrender.com";
 
 // ─── DOM refs ──────────────────────────────────────────────────────────────────
 const loginPanel = document.querySelector("#loginPanel");

@@ -48,34 +48,26 @@
     return '<span class="status-pill ' + s.cls + '">' + s.label + '</span>';
   };
 
-  // ── Fetch — confirmed / cancelled / completed + stuck pending (>15 min) ──
+  // ── Fetch all bookings — confirmed, pending, cancelled, completed ─────────
   async function fetchBookings() {
     if (!db) { showMessage("Supabase not connected.", "error"); return []; }
 
-    // Fetch the main set: confirmed, cancelled, completed
-    const { data: mainData, error: mainErr } = await db
+    const { data: allData, error: allErr } = await db
       .from("bookings")
       .select("*")
-      .in("status", ["confirmed", "cancelled", "completed"])
       .order("booked_at", { ascending: false });
-    if (mainErr) throw new Error(mainErr.message);
+    if (allErr) throw new Error(allErr.message);
 
-    // Also fetch "stuck" pending bookings (>15 min old — CCAvenue return likely failed)
-    // These appear with a yellow "Stuck" label so admin can manually confirm/cancel
-    const cutoffTime = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    const { data: stuckData } = await db
-      .from("bookings")
-      .select("*")
-      .eq("status", "pending")
-      .lt("booked_at", cutoffTime)
-      .order("booked_at", { ascending: false });
-
-    // Tag stuck records so they render differently
-    const tagged = (stuckData || []).map(function (b) {
-      return Object.assign({}, b, { _stuck: true });
+    const cutoffTime = Date.now() - 15 * 60 * 1000;
+    return (allData || []).map(function (b) {
+      if (b.status === "pending") {
+        const bookedTime = b.booked_at ? new Date(b.booked_at).getTime() : 0;
+        if (bookedTime < cutoffTime) {
+          return Object.assign({}, b, { _stuck: true });
+        }
+      }
+      return b;
     });
-
-    return [...(mainData || []), ...tagged];
   }
 
   // ── Render ────────────────────────────────────────────────────────────────

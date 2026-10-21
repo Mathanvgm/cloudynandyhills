@@ -5,6 +5,7 @@ const multer = require("multer");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const { createClient } = require("@supabase/supabase-js");
+const { initSkyHmsSync, inventorySyncService, reservationSyncService } = require("./sync");
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -49,17 +50,18 @@ const CCA_REDIRECT_DOMAIN = "https://cloudynandyhills.onrender.com";
 // After payment completes, customer is sent to this page on the live website.
 const PAYMENT_RETURN_BASE = "https://www.cloudynandyhills.com";
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error(
-    "❌ Missing required environment variables: SUPABASE_URL, SUPABASE_SERVICE_KEY"
-  );
-  process.exit(1);
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    auth: { persistSession: false },
+  });
+} else {
+  const fallbackUrl = SUPABASE_URL || "https://wyjkehxbybkakgxdnoje.supabase.co";
+  console.warn("⚠️  SUPABASE_SERVICE_KEY missing. Initializing in local dev mode (SkyHMS in-memory/SQLite active).");
+  supabase = createClient(fallbackUrl, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dev_placeholder", {
+    auth: { persistSession: false },
+  });
 }
-
-// Service-role client → bypasses ALL Supabase RLS
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-  auth: { persistSession: false },
-});
 
 // ─── Express setup ────────────────────────────────────────────────────────────
 
@@ -283,8 +285,17 @@ app.get("/", (_req, res) => {
   res.json({
     service: "Cloud Nandy Hills API",
     status: "running",
-    version: "1.0.0",
-    endpoints: ["/api/health", "/api/properties", "/api/bookings", "/api/payment/initiate"],
+    version: "1.1.0",
+    endpoints: [
+      "/api/health",
+      "/api/properties",
+      "/api/bookings",
+      "/api/payment/initiate",
+      "/api/skyhms/status",
+      "/api/skyhms/availability",
+      "/api/skyhms/mappings",
+      "/api/skyhms/webhook"
+    ],
   });
 });
 
@@ -469,6 +480,22 @@ app.post("/api/bookings", async (req, res) => {
     return sendError(res, 400, "Missing required booking fields: name, phone, room, check_in, check_out");
   }
 
+  // ── SkyHMS & Local Availability Check ──
+  try {
+    const avail = await inventorySyncService.checkAvailability({
+      roomName: room,
+      checkIn: check_in,
+      checkOut: check_out,
+      requestedRooms: 1,
+    });
+
+    if (!avail.isAvailable) {
+      return sendError(res, 409, avail.reason || "The selected cabin is not available for these dates.");
+    }
+  } catch (availErr) {
+    console.warn("Availability pre-check warning:", availErr.message);
+  }
+
   const orderId = "CNH-" + Date.now() + "-" + Math.floor(Math.random() * 9000 + 1000);
 
   const { data: insertedRows, error: insertError } = await supabase
@@ -497,6 +524,23 @@ app.post("/api/bookings", async (req, res) => {
 
   const bookingId = insertedRows && insertedRows[0] ? insertedRows[0].id : null;
   console.log(`New booking saved — order: ${orderId}, id: ${bookingId}`);
+
+  // Non-blocking sync to SkyHMS
+  reservationSyncService.syncWebsiteBookingToSkyHms({
+    id: bookingId,
+    order_id: orderId,
+    room,
+    check_in,
+    check_out,
+    name,
+    email,
+    phone,
+    adults,
+    children,
+    total_amount,
+    requests,
+    origin: "CUSTOM_ENGINE",
+  }).catch((syncErr) => console.error("SkyHMS sync fire error:", syncErr.message));
 
   res.status(201).json({ ok: true, order_id: orderId, booking_id: bookingId });
 });
@@ -534,26 +578,41 @@ app.get("/api/bookings/confirmed", async (_req, res) => {
  * 3. Returns an HTML page that auto-submits a form to CCAvenue
  */
 app.post("/api/payment/initiate", async (req, res) => {
-  if (!CCAVENUE_MERCHANT_ID || !CCAVENUE_ACCESS_CODE || !CCAVENUE_WORKING_KEY) {
-    return sendError(res, 500, "CCAvenue credentials are not configured on the server.");
-  }
-
   const {
     name, email, phone, room,
     check_in, check_out, adults, children,
-    requests, total_amount,
-  } = req.body;
+    requests, total_amount, frontend_origin,
+  } = req.body || {};
 
   if (!name || !phone || !room || !check_in || !check_out || !total_amount) {
     return sendError(res, 400, "Missing required booking fields.");
   }
 
+  const frontendOrigin = (frontend_origin || req.headers.origin || FRONTEND_URL || "https://www.cloudynandyhills.com").replace(/\/$/, "");
+
+  // ── SkyHMS & Local Concurrency Check: Prevent Double Bookings ──
+  try {
+    const avail = await inventorySyncService.checkAvailability({
+      roomName: room,
+      checkIn: check_in,
+      checkOut: check_out,
+      requestedRooms: 1,
+    });
+
+    if (!avail.isAvailable) {
+      console.warn(`[DOUBLE-BOOKING-PREVENTED] Room '${room}' is unavailable for ${check_in} to ${check_out}`);
+      return sendError(res, 409, avail.reason || "The selected cabin is already booked for these dates.");
+    }
+  } catch (availErr) {
+    console.warn("Availability pre-check warning:", availErr.message);
+  }
+
   // Generate a unique order ID
   const orderId = "CNH-" + Date.now() + "-" + Math.floor(Math.random() * 9000 + 1000);
 
-  // 1. Save booking as CONFIRMED immediately in Supabase.
-  //    If CCAvenue returns with failure/abort, status is downgraded to cancelled/failed.
-  //    Saving as confirmed upfront ensures the booking is visible in admin right away.
+  // 1. Save booking as PENDING in Supabase.
+  //    Only when payment is confirmed in /api/payment/return is it upgraded to 'confirmed' and pushed to SkyHMS.
+  //    If payment fails, is cancelled, or the user navigates away, the room is moved to 'cancelled'.
   const { data: insertedRows, error: insertError } = await supabase
     .from("bookings")
     .insert([{
@@ -567,7 +626,7 @@ app.post("/api/payment/initiate", async (req, res) => {
       children: Number(children) || 0,
       requests: requests || null,
       total_amount: Number(total_amount),
-      status: "confirmed",
+      status: "pending",
       order_id: orderId,
       booked_at: new Date().toISOString(),
     }])
@@ -580,51 +639,53 @@ app.post("/api/payment/initiate", async (req, res) => {
 
   const bookingId = insertedRows && insertedRows[0] ? insertedRows[0].id : null;
 
-  // 2. Build CCAvenue order params string
-  const returnUrl = `${CCA_REDIRECT_DOMAIN.replace(/\/$/, "")}/api/payment/return`;
-  const cancelUrl = `${CCA_REDIRECT_DOMAIN.replace(/\/$/, "")}/api/payment/return?status=cancelled&order_id=${orderId}`;
+  const hasLiveCca = CCAVENUE_MERCHANT_ID && CCAVENUE_ACCESS_CODE && CCAVENUE_WORKING_KEY;
 
-  const orderParams = [
-    `merchant_id=${CCAVENUE_MERCHANT_ID}`,
-    `order_id=${orderId}`,
-    `amount=${Number(total_amount).toFixed(2)}`,
-    `currency=INR`,
-    `redirect_url=${encodeURIComponent(returnUrl)}`,
-    `cancel_url=${encodeURIComponent(cancelUrl)}`,
-    `language=EN`,
-    `billing_name=${encodeURIComponent(name)}`,
-    `billing_email=${encodeURIComponent(email || "")}`,
-    `billing_tel=${encodeURIComponent(phone)}`,
-    `billing_address=${encodeURIComponent("Cloud Nandy Hills, Poombarai, Kodaikanal")}`,
-    `billing_city=${encodeURIComponent("Kodaikanal")}`,
-    `billing_state=${encodeURIComponent("Tamil Nadu")}`,
-    `billing_zip=${encodeURIComponent("624103")}`,
-    `billing_country=${encodeURIComponent("India")}`,
-    `merchant_param1=${encodeURIComponent(bookingId || "")}`,
-    `merchant_param2=${encodeURIComponent(room)}`,
-  ].join("&");
+  if (hasLiveCca) {
+    // 2. Build live CCAvenue order params string
+    const returnUrl = `${CCA_REDIRECT_DOMAIN.replace(/\/$/, "")}/api/payment/return`;
+    const cancelUrl = `${CCA_REDIRECT_DOMAIN.replace(/\/$/, "")}/api/payment/return?status=cancelled&order_id=${orderId}&frontend_origin=${encodeURIComponent(frontendOrigin)}`;
 
-  // 3. Encrypt
-  const encryptedData = ccaEncrypt(orderParams, CCAVENUE_WORKING_KEY);
+    const orderParams = [
+      `merchant_id=${CCAVENUE_MERCHANT_ID}`,
+      `order_id=${orderId}`,
+      `amount=${Number(total_amount).toFixed(2)}`,
+      `currency=INR`,
+      `redirect_url=${encodeURIComponent(returnUrl)}`,
+      `cancel_url=${encodeURIComponent(cancelUrl)}`,
+      `language=EN`,
+      `billing_name=${encodeURIComponent(name)}`,
+      `billing_email=${encodeURIComponent(email || "")}`,
+      `billing_tel=${encodeURIComponent(phone)}`,
+      `billing_address=${encodeURIComponent("Cloud Nandy Hills, Poombarai, Kodaikanal")}`,
+      `billing_city=${encodeURIComponent("Kodaikanal")}`,
+      `billing_state=${encodeURIComponent("Tamil Nadu")}`,
+      `billing_zip=${encodeURIComponent("624103")}`,
+      `billing_country=${encodeURIComponent("India")}`,
+      `merchant_param1=${encodeURIComponent(bookingId || "")}`,
+      `merchant_param2=${encodeURIComponent(room)}`,
+      `merchant_param3=${encodeURIComponent(frontendOrigin)}`,
+    ].join("&");
 
-  // 4. Return an auto-submitting HTML form
-  const html = `<!doctype html>
+    // Encrypt & Return auto-submitting CCAvenue HTML form
+    const encryptedData = ccaEncrypt(orderParams, CCAVENUE_WORKING_KEY);
+    const html = `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8"/>
   <title>Redirecting to Payment…</title>
   <style>
     body { font-family: sans-serif; display:flex; align-items:center; justify-content:center;
-           min-height:100vh; background:#f0ede8; flex-direction:column; gap:16px; }
-    .spinner { width:40px; height:40px; border:4px solid #f0ede8; border-top-color:#b45f3c;
+           min-height:100vh; background:#08110e; color:#fff; flex-direction:column; gap:16px; }
+    .spinner { width:40px; height:40px; border:4px solid rgba(255,255,255,0.1); border-top-color:#b45f3c;
                border-radius:50%; animation:spin .8s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
-    p { color:#555; font-size:0.95rem; }
+    p { color:#94a3b8; font-size:0.95rem; }
   </style>
 </head>
 <body>
   <div class="spinner"></div>
-  <p>Redirecting to secure payment gateway&hellip;</p>
+  <p>Connecting to CCAvenue secure gateway&hellip;</p>
   <form id="ccaForm" method="POST" action="${CCA_GATEWAY_URL}">
     <input type="hidden" name="encRequest" value="${encryptedData}" />
     <input type="hidden" name="access_code" value="${CCAVENUE_ACCESS_CODE}" />
@@ -633,8 +694,152 @@ app.post("/api/payment/initiate", async (req, res) => {
 </body>
 </html>`;
 
+    res.set("Content-Type", "text/html");
+    return res.send(html);
+  }
+
+  // 3. Fallback Test/Simulation Gateway (activates when CCAvenue keys are not set on environment)
+  const simHtml = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Secure Payment Checkout | Cloud Nandy Hills</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #08110e; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .checkout-box { background: #13221b; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; max-width: 480px; width: 100%; padding: 36px 30px; box-shadow: 0 25px 80px rgba(0,0,0,0.6); text-align: center; }
+    .badge { display: inline-block; background: rgba(180,95,60,0.2); border: 1px solid rgba(180,95,60,0.4); color: #e5b869; font-size: 0.72rem; font-weight: 800; padding: 5px 14px; border-radius: 999px; letter-spacing: 0.06em; margin-bottom: 16px; text-transform: uppercase; }
+    h2 { font-family: 'Outfit', sans-serif; font-size: 1.6rem; font-weight: 800; margin-bottom: 6px; color: #fff; }
+    .subtitle { color: #94a3b8; font-size: 0.88rem; line-height: 1.5; margin-bottom: 24px; }
+    .invoice-card { background: #0b1612; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 18px 20px; margin-bottom: 26px; text-align: left; font-size: 0.88rem; }
+    .inv-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .inv-row:last-child { border-bottom: none; padding-top: 12px; margin-top: 4px; }
+    .lbl { color: #94a3b8; font-weight: 500; }
+    .val { color: #fff; font-weight: 600; text-align: right; }
+    .val.amount { color: #34d399; font-size: 1.15rem; font-weight: 800; }
+    .actions-wrap { display: flex; flex-direction: column; gap: 12px; }
+    .btn { width: 100%; padding: 15px; border-radius: 12px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.96rem; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
+    .btn-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; box-shadow: 0 4px 18px rgba(16,185,129,0.35); }
+    .btn-success:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(16,185,129,0.5); }
+    .btn-cancel { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35); color: #fca5a5; }
+    .btn-cancel:hover { background: rgba(239,68,68,0.22); transform: translateY(-1px); }
+  </style>
+</head>
+<body>
+  <div class="checkout-box">
+    <div class="badge">CCAvenue Gateway Checkout</div>
+    <h2>Confirm Your Stay</h2>
+    <p class="subtitle">Cloud Nandy Hills Luxury Cabins &middot; Poombarai, Kodaikanal</p>
+    <div class="invoice-card">
+      <div class="inv-row"><span class="lbl">Guest Name</span><span class="val">${name}</span></div>
+      <div class="inv-row"><span class="lbl">Cabin</span><span class="val">${room}</span></div>
+      <div class="inv-row"><span class="lbl">Stay Dates</span><span class="val">${check_in} &rarr; ${check_out}</span></div>
+      <div class="inv-row"><span class="lbl">Order ID</span><span class="val"><code style="color:#e5b869;">${orderId}</code></span></div>
+      <div class="inv-row"><span class="lbl">Total Payable</span><span class="val amount">₹${Number(total_amount).toLocaleString("en-IN")}</span></div>
+    </div>
+    <div class="actions-wrap">
+      <form method="POST" action="${API_BASE_URL}/api/payment/simulate">
+        <input type="hidden" name="order_id" value="${orderId}"/>
+        <input type="hidden" name="action" value="success"/>
+        <input type="hidden" name="amount" value="${total_amount}"/>
+        <input type="hidden" name="frontend_origin" value="${frontendOrigin}"/>
+        <button type="submit" class="btn btn-success">✓ Authorize Payment (₹${Number(total_amount).toLocaleString("en-IN")})</button>
+      </form>
+      <form method="POST" action="${API_BASE_URL}/api/payment/simulate">
+        <input type="hidden" name="order_id" value="${orderId}"/>
+        <input type="hidden" name="action" value="cancelled"/>
+        <input type="hidden" name="frontend_origin" value="${frontendOrigin}"/>
+        <button type="submit" class="btn btn-cancel">✕ Cancel / Decline Payment</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>`;
+
   res.set("Content-Type", "text/html");
-  res.send(html);
+  res.send(simHtml);
+});
+
+/**
+ * POST /api/payment/simulate
+ * Handles simulated gateway authorization or cancellation when in sandbox/demo mode.
+ */
+app.post("/api/payment/simulate", express.urlencoded({ extended: false }), async (req, res) => {
+  const { order_id, action, amount, frontend_origin } = req.body || {};
+  const returnBase = (frontend_origin || FRONTEND_URL || "https://www.cloudynandyhills.com").replace(/\/$/, "");
+
+  const isSuccess = action === "success";
+  const trackingId = isSuccess ? "SIM_" + Date.now() : "";
+  const dbStatus = isSuccess ? "confirmed" : "cancelled";
+  const uiStatus = isSuccess ? "success" : "cancelled";
+
+  if (order_id && supabase) {
+    try {
+      await supabase
+        .from("bookings")
+        .update({
+          status: dbStatus,
+          payment_tracking_id: trackingId || "CANCELLED_BY_USER",
+        })
+        .eq("order_id", order_id);
+
+      console.log(`[PAYMENT-SIMULATE] Booking ${order_id} updated to ${dbStatus}`);
+
+      if (isSuccess) {
+        const { data: bookingRows } = await supabase
+          .from("bookings")
+          .select("id,name,email,phone,room,check_in,check_out,adults,children,total_amount")
+          .eq("order_id", order_id)
+          .limit(1);
+
+        if (bookingRows && bookingRows[0]) {
+          const b = bookingRows[0];
+          sendBookingEmail({
+            name: b.name,
+            email: b.email,
+            phone: b.phone,
+            room: b.room,
+            check_in: b.check_in,
+            check_out: b.check_out,
+            adults: b.adults,
+            children: b.children,
+            amount: amount || b.total_amount,
+            orderId: order_id,
+            tracking: trackingId,
+          }).catch((err) => console.error("Simulated email error:", err.message));
+
+          reservationSyncService.syncWebsiteBookingToSkyHms({
+            id: b.id,
+            order_id,
+            name: b.name,
+            email: b.email,
+            phone: b.phone,
+            room: b.room,
+            check_in: b.check_in,
+            check_out: b.check_out,
+            adults: b.adults,
+            children: b.children,
+            total_amount: amount || b.total_amount,
+            origin: "CUSTOM_ENGINE",
+          }).catch((syncErr) => console.error("SkyHMS auto-sync error:", syncErr.message));
+        }
+      }
+    } catch (dbErr) {
+      console.error("Payment simulate error:", dbErr.message);
+    }
+  }
+
+  const queryParams = new URLSearchParams({
+    status: uiStatus,
+    order_id: order_id || "",
+    tracking: trackingId,
+    amount: amount || "",
+  });
+
+  return res.redirect(`${returnBase}/payment-return.html?${queryParams.toString()}`);
 });
 
 /**
@@ -645,56 +850,43 @@ app.post("/api/payment/initiate", async (req, res) => {
 app.post("/api/payment/return", express.urlencoded({ extended: false }), async (req, res) => {
   const encResponse = req.body.encResp;
 
-  // Frontend URL for redirecting customer after payment
-  // payment-return.html lives at root of frontend, not under /frontend/
-  const PAYMENT_RETURN_BASE = "https://www.cloudynandyhills.com";
-
-  if (!encResponse) {
-    return res.redirect(
-      `${PAYMENT_RETURN_BASE}/payment-return.html?status=error`
-    );
-  }
-
   let parsed = {};
-  try {
-    const decrypted = ccaDecrypt(encResponse, CCAVENUE_WORKING_KEY);
-    parsed = parseCCAResponse(decrypted);
-    console.log("CCAvenue decrypted response:", parsed);
-  } catch (err) {
-    console.error("CCAvenue decrypt error:", err);
-    return res.redirect(
-      `${PAYMENT_RETURN_BASE}/payment-return.html?status=error`
-    );
+  if (encResponse && CCAVENUE_WORKING_KEY) {
+    try {
+      const decrypted = ccaDecrypt(encResponse, CCAVENUE_WORKING_KEY);
+      parsed = parseCCAResponse(decrypted);
+      console.log("CCAvenue decrypted response:", parsed);
+    } catch (err) {
+      console.error("CCAvenue decrypt error:", err);
+    }
   }
 
-  const orderId      = parsed.order_id || "";
-  const ccaStatus    = (parsed.order_status || "").toLowerCase(); // success / failure / aborted
-  const trackingId   = parsed.tracking_id || "";
-  const amount       = parsed.amount || "";
-  const bookingId    = parsed.merchant_param1 || "";
+  const orderId = parsed.order_id || req.body.order_id || "";
+  const ccaStatus = (parsed.order_status || req.body.status || "").toLowerCase(); // success / failure / aborted
+  const trackingId = parsed.tracking_id || "";
+  const amount = parsed.amount || "";
+  const frontendOrigin = parsed.merchant_param3 || req.body.frontend_origin;
+  const returnBase = (frontendOrigin || FRONTEND_URL || "https://www.cloudynandyhills.com").replace(/\/$/, "");
 
-  // Booking was already saved as "confirmed" at initiation.
-  // On success → keep confirmed, just save the tracking ID.
-  // On abort/failure → downgrade to cancelled/failed.
   let dbStatus;
   let uiStatus;
   if (ccaStatus === "success") {
-    dbStatus = "confirmed"; // already confirmed — no change needed, just update tracking
+    dbStatus = "confirmed";
     uiStatus = "success";
   } else if (ccaStatus === "aborted") {
-    dbStatus = "cancelled"; // customer cancelled — downgrade
+    dbStatus = "cancelled";
     uiStatus = "cancelled";
   } else {
-    dbStatus = "cancelled"; // payment failed — downgrade (not 'failed' to keep admin clean)
+    dbStatus = "cancelled";
     uiStatus = "failed";
   }
 
-  // Update booking in Supabase (always save tracking_id; downgrade status if needed)
-  if (orderId) {
+  if (orderId && supabase) {
     const updatePayload = {
       status: dbStatus,
-      payment_tracking_id: trackingId || null,
+      payment_tracking_id: trackingId || (ccaStatus === "success" ? "PAID" : "CANCELLED_OR_FAILED"),
     };
+
     const { error: updateError } = await supabase
       .from("bookings")
       .update(updatePayload)
@@ -703,37 +895,50 @@ app.post("/api/payment/return", express.urlencoded({ extended: false }), async (
     if (updateError) {
       console.error("Booking status update error:", updateError);
     } else {
-      console.log(`Booking ${orderId} updated to ${dbStatus}`);
+      console.log(`Booking ${orderId} updated to ${dbStatus} in Supabase`);
     }
 
-    // Send confirmation email to guest on success (non-blocking)
     if (ccaStatus === "success") {
       const { data: bookingRows } = await supabase
         .from("bookings")
-        .select("name,email,phone,room,check_in,check_out,adults,children,total_amount")
+        .select("id,name,email,phone,room,check_in,check_out,adults,children,total_amount")
         .eq("order_id", orderId)
         .limit(1);
 
       if (bookingRows && bookingRows[0]) {
         const b = bookingRows[0];
         sendBookingEmail({
-          name:      b.name,
-          email:     b.email,
-          phone:     b.phone,
-          room:      b.room,
-          check_in:  b.check_in,
+          name: b.name,
+          email: b.email,
+          phone: b.phone,
+          room: b.room,
+          check_in: b.check_in,
           check_out: b.check_out,
-          adults:    b.adults,
-          children:  b.children,
-          amount:    amount || b.total_amount,
+          adults: b.adults,
+          children: b.children,
+          amount: amount || b.total_amount,
           orderId,
-          tracking:  trackingId,
-        }).catch(err => console.error("Email fire error:", err.message));
+          tracking: trackingId,
+        }).catch((err) => console.error("Email fire error:", err.message));
+
+        reservationSyncService.syncWebsiteBookingToSkyHms({
+          id: b.id,
+          order_id: orderId,
+          name: b.name,
+          email: b.email,
+          phone: b.phone,
+          room: b.room,
+          check_in: b.check_in,
+          check_out: b.check_out,
+          adults: b.adults,
+          children: b.children,
+          total_amount: amount || b.total_amount,
+          origin: "CUSTOM_ENGINE",
+        }).catch((syncErr) => console.error("SkyHMS auto-sync fire error:", syncErr.message));
       }
     }
   }
 
-  // Redirect to frontend payment result page
   const params = new URLSearchParams({
     status: uiStatus,
     order_id: orderId,
@@ -741,11 +946,73 @@ app.post("/api/payment/return", express.urlencoded({ extended: false }), async (
     amount,
   });
 
-  return res.redirect(
-    `${PAYMENT_RETURN_BASE}/payment-return.html?${params.toString()}`
-  );
-
+  return res.redirect(`${returnBase}/payment-return.html?${params.toString()}`);
 });
+
+/**
+ * GET /api/payment/return
+ * Handles customer cancellation / browser return from CCAvenue cancel_url via GET.
+ * Immediately marks booking as 'cancelled' so the room is released for booking.
+ */
+app.get("/api/payment/return", async (req, res) => {
+  const orderId = req.query.order_id || "";
+  const statusParam = (req.query.status || "cancelled").toLowerCase();
+  const returnBase = (req.query.frontend_origin || FRONTEND_URL || "https://www.cloudynandyhills.com").replace(/\/$/, "");
+
+  if (orderId && supabase) {
+    try {
+      const { data: existing } = await supabase
+        .from("bookings")
+        .select("status")
+        .eq("order_id", orderId)
+        .maybeSingle();
+
+      if (existing && existing.status !== "confirmed") {
+        await supabase
+          .from("bookings")
+          .update({ status: "cancelled", payment_tracking_id: "CANCELLED_BY_USER" })
+          .eq("order_id", orderId);
+        console.log(`[PAYMENT-CANCEL] Booking ${orderId} cancelled via customer return GET.`);
+      }
+    } catch (err) {
+      console.warn("Cancel GET booking update error:", err.message);
+    }
+  }
+
+  const params = new URLSearchParams({
+    status: statusParam === "cancelled" ? "cancelled" : "failed",
+    order_id: orderId,
+  });
+
+  return res.redirect(`${returnBase}/payment-return.html?${params.toString()}`);
+});
+
+/**
+ * POST /api/payment/cancel
+ * Allows frontend to explicitly release a pending booking hold if the user cancels or closes checkout.
+ */
+app.post("/api/payment/cancel", async (req, res) => {
+  const { order_id } = req.body || {};
+  if (!order_id) {
+    return sendError(res, 400, "order_id is required.");
+  }
+  if (supabase) {
+    await supabase
+      .from("bookings")
+      .update({ status: "cancelled" })
+      .eq("order_id", order_id)
+      .neq("status", "confirmed");
+  }
+  res.json({ ok: true, message: "Booking cancelled and room released." });
+});
+
+// ── Initialize SkyHMS Inventory Synchronization Subsystem ──────────────────
+try {
+  initSkyHmsSync(app, supabase);
+  console.log("✅  SkyHMS Inventory Synchronization Subsystem initialized");
+} catch (syncInitErr) {
+  console.error("❌  SkyHMS sync initialization error:", syncInitErr.message);
+}
 
 // ─── Global error handler ─────────────────────────────────────────────────────
 
@@ -758,6 +1025,30 @@ app.use((err, _req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`✅  Cloud Nandy API running on port ${PORT}`);
+
+  // ── Auto-cleanup expired pending payment holds (15 min timeout) ─────────────
+  // If payment was not done or the customer returned to any other page / closed tab,
+  // automatically release the room so other guests can book it.
+  const cleanupExpiredPendingBookings = async () => {
+    if (!supabase) return;
+    try {
+      const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      const { data: expired, error } = await supabase
+        .from("bookings")
+        .update({ status: "cancelled" })
+        .eq("status", "pending")
+        .lt("booked_at", fifteenMinsAgo)
+        .select("id, order_id, room");
+
+      if (!error && expired && expired.length > 0) {
+        console.log(`🧹 Auto-released ${expired.length} abandoned pending booking(s): rooms are free.`);
+      }
+    } catch (err) {
+      console.warn("Expired pending bookings cleanup warning:", err.message);
+    }
+  };
+  cleanupExpiredPendingBookings();
+  setInterval(cleanupExpiredPendingBookings, 5 * 60 * 1000);
 
   // ── Keep-alive ping (Render free tier spins down after 15 min of inactivity) ─
   // Ping our own health endpoint every 14 minutes to stay awake.

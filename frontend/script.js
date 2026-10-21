@@ -1,4 +1,25 @@
-const API_BASE = "https://cloudynandyhills.onrender.com";
+const API_BASE = window.CLOUD_NANDY_API_URL || "https://cloudynandyhills.onrender.com";
+
+function normalizeRoomKey(name) {
+  if (!name) return "";
+  const s = String(name).toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (s.includes("deluxe") || s.includes("dlx") || s.includes("dmv")) return "dmv";
+  if (s.includes("wooden") || s.includes("twobed") || s.includes("doublebed") || s.includes("dtwh")) return "dtwh";
+  if (s.includes("superior") || s.includes("afram") || s.includes("sfv")) return "sfv";
+  if (s.includes("premium") || s.includes("family") || s.includes("ddm")) return "ddm";
+  if (s.includes("mountain") || s.includes("mcb") || s.includes("cabin")) return "mcb";
+  return s;
+}
+
+function areRoomsMatching(nameA, nameB) {
+  if (!nameA || !nameB) return false;
+  const a = String(nameA).trim().toLowerCase();
+  const b = String(nameB).trim().toLowerCase();
+  if (a === b) return true;
+  const kA = normalizeRoomKey(a);
+  const kB = normalizeRoomKey(b);
+  return kA && kB && kA === kB;
+}
 
 // ── Confirmed bookings — used to block already-booked rooms ─────────────────
 let confirmedBookings = []; // [{room, check_in, check_out}]
@@ -10,6 +31,25 @@ async function fetchConfirmedBookings(retryCount = 0) {
     if (!res.ok) throw new Error("HTTP " + res.status);
     confirmedBookings = await res.json();
   } catch (e) {
+    // Fallback directly to Supabase if Render is cold/down
+    try {
+      const client = window.supabaseClient || (window.supabase && window.supabase.createClient(
+        (window.CLOUD_NANDY_SUPABASE && window.CLOUD_NANDY_SUPABASE.url) || "https://wyjkehxbybkakgxdnoje.supabase.co",
+        (window.CLOUD_NANDY_SUPABASE && window.CLOUD_NANDY_SUPABASE.key) || "sb_publishable_FmN54Y2I0thkiRcGsoZWzg_VSfI6Dia"
+      ));
+      if (client) {
+        const { data } = await client
+          .from("bookings")
+          .select("room, check_in, check_out")
+          .eq("status", "confirmed");
+        if (data && data.length) {
+          confirmedBookings = data;
+          if (allLoadedProperties.length) applyRoomFiltersAndSort();
+          return;
+        }
+      }
+    } catch (err) {}
+
     confirmedBookings = [];
     // Retry in background with exponential backoff (handles Render cold starts)
     if (retryCount < MAX_RETRIES) {
@@ -31,7 +71,7 @@ function isRoomBlockedForDates(roomName, checkInVal, checkOutVal) {
   const selIn  = new Date(checkInVal  + "T00:00:00");
   const selOut = new Date(checkOutVal + "T00:00:00");
   return confirmedBookings.some(function (b) {
-    if ((b.room || "").trim().toLowerCase() !== (roomName || "").trim().toLowerCase()) return false;
+    if (!areRoomsMatching(b.room, roomName)) return false;
     const bIn  = new Date(b.check_in  + "T00:00:00");
     const bOut = new Date(b.check_out + "T00:00:00");
     return bIn < selOut && bOut > selIn;

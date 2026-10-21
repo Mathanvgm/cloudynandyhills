@@ -44,6 +44,24 @@
   }
   let selectedRoomFilter = urlParams.get("room") || null;
 
+  // If user returned after payment was not done or cancelled
+  const returnStatus = (urlParams.get("status") || (urlParams.get("cancelled") ? "cancelled" : "")).toLowerCase();
+  if (returnStatus === "cancelled" || returnStatus === "failed") {
+    const showCancelBanner = () => {
+      const banner = document.createElement("div");
+      banner.style.cssText = "background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;padding:12px 18px;border-radius:12px;margin:16px 0;font-size:0.9rem;display:flex;align-items:center;gap:10px;";
+      banner.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span><strong>Payment was not completed:</strong> Your selected dates are still available. You can re-select your cabin and try again anytime.</span>`;
+      const formBox = document.querySelector(".bk-engine-card") || document.querySelector("main") || document.body;
+      formBox.prepend(banner);
+    };
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", showCancelBanner);
+    } else {
+      showCancelBanner();
+    }
+  }
+
   const updateNightsBadge = () => {
     if (!ci || !co) return 1;
     const s = new Date(ci.value + "T00:00:00");
@@ -105,7 +123,28 @@
     return null;
   }
 
-  const API_BASE = "https://cloudynandyhills.onrender.com";
+  const API_BASE = window.CLOUD_NANDY_API_URL || "https://cloudynandyhills.onrender.com";
+
+  function normalizeRoomKey(name) {
+    if (!name) return "";
+    const s = String(name).toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (s.includes("deluxe") || s.includes("dlx") || s.includes("dmv")) return "dmv";
+    if (s.includes("wooden") || s.includes("twobed") || s.includes("doublebed") || s.includes("dtwh")) return "dtwh";
+    if (s.includes("superior") || s.includes("afram") || s.includes("sfv")) return "sfv";
+    if (s.includes("premium") || s.includes("family") || s.includes("ddm")) return "ddm";
+    if (s.includes("mountain") || s.includes("mcb") || s.includes("cabin")) return "mcb";
+    return s;
+  }
+
+  function areRoomsMatching(nameA, nameB) {
+    if (!nameA || !nameB) return false;
+    const a = String(nameA).trim().toLowerCase();
+    const b = String(nameB).trim().toLowerCase();
+    if (a === b) return true;
+    const kA = normalizeRoomKey(a);
+    const kB = normalizeRoomKey(b);
+    return kA && kB && kA === kB;
+  }
 
   async function fetchConfirmedBookings() {
     try {
@@ -113,6 +152,20 @@
       if (!res.ok) throw new Error("HTTP " + res.status);
       confirmedBookings = await res.json();
     } catch {
+      // Fallback: If Render API is sleeping or unreachable, query Supabase directly
+      try {
+        const client = getDb();
+        if (client) {
+          const { data } = await client
+            .from("bookings")
+            .select("room, check_in, check_out")
+            .eq("status", "confirmed");
+          if (data && data.length) {
+            confirmedBookings = data;
+            return;
+          }
+        }
+      } catch (err) {}
       confirmedBookings = [];
     }
   }
@@ -123,7 +176,7 @@
     const selOut = new Date(outVal + "T00:00:00");
     if (isNaN(selIn) || isNaN(selOut) || selOut <= selIn) return false;
     return confirmedBookings.some((b) => {
-      if ((b.room || "").trim().toLowerCase() !== (roomName || "").trim().toLowerCase()) return false;
+      if (!areRoomsMatching(b.room, roomName)) return false;
       const bIn = new Date(b.check_in + "T00:00:00");
       const bOut = new Date(b.check_out + "T00:00:00");
       return bIn < selOut && bOut > selIn;
@@ -965,6 +1018,7 @@
           children: cart.children,
           requests,
           total_amount: total,
+          frontend_origin: window.location.origin,
         });
 
         const MAX_RETRIES = 2;
