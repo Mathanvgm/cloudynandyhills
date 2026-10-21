@@ -1,171 +1,1096 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Booking Confirmation | Cloud Nandy Hills</title>
+  <meta name="description" content="Cloud Nandy Hills booking confirmation and receipt. Check your reservation details, policies, and download official PDF voucher." />
+  
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  
   <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{--green:#16a34a;--green-lt:#dcfce7;--brand:#b45f3c;--dark:#17211d;--text:#1a1a1a;--muted:#6b7280;--border:#e5e7eb;--bg:#f0ede8}
-    body{font-family:'Inter',sans-serif;background:var(--bg);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
-    #confettiCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
-    .wrap{width:100%;max-width:540px;position:relative;z-index:1}
-    .hdr{background:var(--dark);border-radius:20px 20px 0 0;padding:20px 28px;display:flex;align-items:center;gap:12px}
-    .hdr img{width:36px;height:36px;border-radius:50%;object-fit:cover}
-    .hdr strong{display:block;color:#fff;font-size:1rem;font-weight:700}
-    .hdr span{color:#9ca3af;font-size:0.78rem}
-    .card{background:#fff;border-radius:0 0 20px 20px;box-shadow:0 24px 80px rgba(0,0,0,.14);overflow:hidden;animation:up .5s cubic-bezier(.16,1,.3,1) both}
-    @keyframes up{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
-    .s-hero{background:linear-gradient(135deg,#052e16 0%,#14532d 60%,#166534 100%);padding:40px 28px 32px;text-align:center;position:relative;overflow:hidden}
-    .s-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(34,197,94,.25) 0%,transparent 65%)}
-    .ring{width:88px;height:88px;border-radius:50%;background:rgba(34,197,94,.15);border:2px solid rgba(34,197,94,.35);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;position:relative;z-index:1;animation:pop .6s .15s cubic-bezier(.16,1,.3,1) both}
-    @keyframes pop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
-    .s-title{font-size:1.75rem;font-weight:900;color:#fff;letter-spacing:-.5px;margin-bottom:8px;position:relative;z-index:1}
-    .s-sub{font-size:.9rem;color:#86efac;line-height:1.55;max-width:360px;margin:0 auto;position:relative;z-index:1}
-    .sec{padding:24px 28px 0}
-    .sec-lbl{font-size:.7rem;font-weight:700;letter-spacing:1.2px;color:var(--brand);text-transform:uppercase;margin-bottom:12px}
-    .grid{border:1px solid var(--border);border-radius:12px;overflow:hidden}
-    .row{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;font-size:.875rem;border-bottom:1px solid var(--border)}
-    .row:last-child{border-bottom:none}
-    .lbl{color:var(--muted);font-weight:500}
-    .val{color:var(--text);font-weight:700;text-align:right}
-    .val.g{color:var(--green)}
-    .val.bdg{background:var(--green-lt);color:var(--green);padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700}
-    .guest{margin:16px 28px 0;background:linear-gradient(135deg,#faf8f6,#f5f0eb);border:1px solid #e8ddd4;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px}
-    .av{width:40px;height:40px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;flex-shrink:0}
-    .gi strong{display:block;color:var(--text);font-weight:700;font-size:.9rem;margin-bottom:2px}
-    .gi span{color:var(--muted);font-size:.8rem}
-    .enote{margin:14px 28px 0;padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;display:flex;align-items:center;gap:10px;font-size:.82rem;color:#1d4ed8;line-height:1.4}
-    .enote svg{flex-shrink:0}
-    .cdwrap{margin:18px 28px 0;background:#f9fafb;border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px}
-    .cdtxt{font-size:.82rem;color:var(--muted);flex:1}
-    .cdtxt strong{color:var(--text)}
-    .btrack{height:4px;background:var(--border);border-radius:2px;overflow:hidden;flex:1;max-width:120px}
-    .bfill{height:100%;background:var(--brand);border-radius:2px;width:100%;transition:width 1s linear}
-    .acts{display:flex;gap:10px;padding:22px 28px 28px}
-    .btn{flex:1;padding:14px 16px;border-radius:10px;border:none;font-size:.9rem;font-weight:700;cursor:pointer;text-decoration:none;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:transform .15s,box-shadow .15s}
-    .btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.13)}
-    .pdf{background:var(--dark);color:#fff}
-    .home{background:var(--brand);color:#fff}
-    .sec2{background:#f3f4f6;color:#374151}
-    .f-hero{background:linear-gradient(135deg,#1f0a0a 0%,#450a0a 100%);padding:40px 28px 32px;text-align:center}
-    .f-icon{width:88px;height:88px;border-radius:50%;background:rgba(239,68,68,.15);border:2px solid rgba(239,68,68,.3);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;animation:pop .5s .15s ease both}
-    .f-title{font-size:1.6rem;font-weight:800;color:#fff;margin-bottom:8px}
-    .f-sub{font-size:.9rem;color:#fca5a5;line-height:1.5}
-    .ld{padding:60px 28px;text-align:center;color:#9ca3af}
-    .sp{width:36px;height:36px;border:3px solid #e5e7eb;border-top-color:var(--brand);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @media(max-width:480px){body{padding:12px}.hdr{padding:16px 18px;border-radius:14px 14px 0 0}.s-hero,.f-hero{padding:30px 18px 24px}.s-title{font-size:1.4rem}.sec{padding:18px 18px 0}.guest,.enote,.cdwrap{margin-left:18px;margin-right:18px}.acts{padding:18px 18px 22px;flex-direction:column}}
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-dark: #08110e;
+      --bg-card: rgba(18, 29, 24, 0.94);
+      --bg-surface: #14231c;
+      --brand: #b45f3c;
+      --brand-hover: #9a4f32;
+      --brand-gold: #e5b869;
+      --emerald-dark: #064e3b;
+      --emerald: #10b981;
+      --emerald-light: #d1fae5;
+      --crimson-dark: #450a0a;
+      --crimson: #ef4444;
+      --crimson-light: #fee2e2;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(180, 95, 60, 0.35);
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-serif: 'Playfair Display', serif;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(180, 95, 60, 0.09) 0%, transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.07) 0%, transparent 50%),
+        linear-gradient(180deg, #0a1410 0%, #060b09 100%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 18px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    #confettiCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .main-container {
+      width: 100%;
+      max-width: 620px;
+      position: relative;
+      z-index: 10;
+      animation: cardAppear 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes cardAppear {
+      0% { opacity: 0; transform: translateY(30px) scale(0.97); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Top Branding Header */
+    .top-header {
+      background: rgba(14, 23, 19, 0.88);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-bottom: none;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--brand-gold);
+      box-shadow: 0 4px 12px rgba(180, 95, 60, 0.35);
+    }
+
+    .brand-text h1 {
+      font-family: var(--font-heading);
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+    }
+
+    .brand-text span {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .hotel-phone-badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--brand-gold);
+      background: rgba(229, 184, 105, 0.1);
+      border: 1px solid rgba(229, 184, 105, 0.25);
+      padding: 6px 14px;
+      border-radius: 999px;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .hotel-phone-badge:hover {
+      background: rgba(229, 184, 105, 0.2);
+      transform: translateY(-1px);
+    }
+
+    /* Main Card Content */
+    .booking-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 0 0 20px 20px;
+      overflow: hidden;
+      box-shadow: 0 30px 100px -15px rgba(0, 0, 0, 0.65);
+    }
+
+    /* Hero Section: Success */
+    .hero-success {
+      background: linear-gradient(180deg, rgba(6, 78, 59, 0.45) 0%, rgba(6, 78, 59, 0.08) 100%);
+      border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+      padding: 42px 28px 34px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Hero Section: Failure */
+    .hero-failure {
+      background: linear-gradient(180deg, rgba(69, 10, 10, 0.5) 0%, rgba(69, 10, 10, 0.08) 100%);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+      padding: 42px 28px 34px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Animated Status Rings */
+    .status-ring {
+      width: 92px;
+      height: 92px;
+      border-radius: 50%;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .status-ring.success-ring {
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.05) 70%);
+      border: 2px solid rgba(16, 185, 129, 0.4);
+      box-shadow: 0 0 35px rgba(16, 185, 129, 0.35);
+      animation: ringPulse 2s infinite ease-in-out;
+    }
+
+    .status-ring.failure-ring {
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.05) 70%);
+      border: 2px solid rgba(239, 68, 68, 0.4);
+      box-shadow: 0 0 35px rgba(239, 68, 68, 0.35);
+      animation: ringShake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+
+    @keyframes ringPulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 25px rgba(16, 185, 129, 0.3); }
+      50% { transform: scale(1.05); box-shadow: 0 0 45px rgba(16, 185, 129, 0.55); }
+    }
+
+    @keyframes ringShake {
+      10%, 90% { transform: translate3d(-1px, 0, 0); }
+      20%, 80% { transform: translate3d(2px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+      40%, 60% { transform: translate3d(4px, 0, 0); }
+    }
+
+    .hero-title {
+      font-family: var(--font-heading);
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-subtitle {
+      font-size: 0.95rem;
+      line-height: 1.55;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    .hero-subtitle.success { color: #86efac; }
+    .hero-subtitle.failure { color: #fca5a5; }
+
+    /* Content Section */
+    .card-body {
+      padding: 28px;
+    }
+
+    /* Guest Pill Card */
+    .guest-highlight-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .guest-avatar {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--brand), #8c4226);
+      color: #ffffff;
+      font-size: 1.15rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgba(180, 95, 60, 0.35);
+    }
+
+    .guest-info h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 3px;
+    }
+
+    .guest-info p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* Section Headers */
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--brand-gold);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Details Grid Table */
+    .details-table {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .table-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.88rem;
+    }
+
+    .table-row:last-child {
+      border-bottom: none;
+    }
+
+    .table-row .row-label {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .table-row .row-value {
+      color: #ffffff;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .row-value.price {
+      color: #34d399;
+      font-size: 1.05rem;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .badge-status.confirmed {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .badge-status.cancelled {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+    }
+
+    .copy-btn {
+      background: none;
+      border: none;
+      color: var(--brand-gold);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-left: 8px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+
+    .copy-btn:hover {
+      background: rgba(229, 184, 105, 0.15);
+    }
+
+    /* Policy & Notice Box */
+    .notice-box {
+      background: rgba(180, 95, 60, 0.08);
+      border: 1px solid rgba(180, 95, 60, 0.25);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: #fed7aa;
+    }
+
+    .notice-box.failure-notice {
+      background: rgba(239, 68, 68, 0.08);
+      border-color: rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+    }
+
+    .notice-box strong {
+      color: #ffffff;
+    }
+
+    /* Action Buttons */
+    .actions-grid {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      flex: 1;
+      min-width: 170px;
+      padding: 15px 20px;
+      border-radius: 12px;
+      font-family: var(--font-heading);
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .action-btn.btn-primary {
+      background: linear-gradient(135deg, var(--brand) 0%, #9a4f32 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 18px rgba(180, 95, 60, 0.35);
+    }
+
+    .action-btn.btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(180, 95, 60, 0.5);
+    }
+
+    .action-btn.btn-secondary {
+      background: var(--bg-surface);
+      color: #ffffff;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .action-btn.btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.06);
+      transform: translateY(-2px);
+    }
+
+    .action-btn.btn-danger {
+      background: linear-gradient(135deg, var(--crimson) 0%, #b91c1c 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 18px rgba(239, 68, 68, 0.35);
+    }
+
+    .action-btn.btn-danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5);
+    }
+
+    /* Loading Spinner */
+    .loader-wrap {
+      padding: 70px 20px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--brand);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Toast Notification */
+    #toastMsg {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1e293b;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #toastMsg.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    @media (max-width: 540px) {
+      body { padding: 16px 10px; }
+      .top-header { padding: 16px 18px; }
+      .hero-success, .hero-failure { padding: 32px 18px 26px; }
+      .hero-title { font-size: 1.55rem; }
+      .card-body { padding: 20px 16px; }
+      .actions-grid { flex-direction: column; }
+      .action-btn { width: 100%; }
+    }
   </style>
 </head>
 <body>
-<canvas id="confettiCanvas"></canvas>
-<div class="wrap">
-  <div class="hdr">
-    <img src="./image.jpg" alt="Logo" onerror="this.style.display='none'" />
-    <div><strong>Cloud Nandy Hills</strong><span>Poombarai, Kodaikanal &middot; Tamil Nadu</span></div>
-  </div>
-  <div class="card" id="prCard">
-    <div class="ld"><div class="sp"></div>Processing your payment&hellip;</div>
-  </div>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script>
-(function(){
-  var card=document.getElementById('prCard');
-  var p=new URLSearchParams(window.location.search);
-  var status=(p.get('status')||'').toLowerCase();
-  var orderId=p.get('order_id')||'';
-  var amount=p.get('amount')||'';
-  var tracking=p.get('tracking')||'';
-  var saved;try{saved=JSON.parse(localStorage.getItem('cloudNandyLatestBooking')||'{}');}catch(e){saved={};}
-  var isOk=status==='success'||status==='confirmed';
-  var ref=orderId?orderId.toUpperCase():'\u2014';
-  function fmt(v){return v?'\u20b9'+Number(v).toLocaleString('en-IN',{minimumFractionDigits:2}):'\u2014';}
-  function fd(d){return d?d.split('-').reverse().join(' '):'\u2014';}
+  <canvas id="confettiCanvas"></canvas>
+  <div id="toastMsg">Booking ID copied to clipboard!</div>
 
-  if(isOk){build();confetti();countdown();}else{fail();}
+  <main class="main-container">
+    <!-- Header -->
+    <header class="top-header">
+      <a href="./index.html" class="brand-group" aria-label="Cloud Nandy Hills">
+        <img src="./image.jpg" alt="Logo" class="brand-logo" onerror="this.style.display='none'" />
+        <div class="brand-text">
+          <h1>Cloud Nandy Hills</h1>
+          <span>Poombarai &middot; Kodaikanal</span>
+        </div>
+      </a>
+      <a href="tel:+919095744759" class="hotel-phone-badge">
+        &#9742; 090957 44759
+      </a>
+    </header>
 
-  function build(){
-    var ini=(saved.name||'G').charAt(0).toUpperCase();
-    var rows=[{l:'Booking Status',v:'CONFIRMED',b:true},{l:'Booking Ref',v:ref}];
-    if(saved.room)rows.push({l:'Room',v:saved.room});
-    if(saved.check_in)rows.push({l:'Check-In',v:fd(saved.check_in)+' \u00b7 1:00 PM'});
-    if(saved.check_out)rows.push({l:'Check-Out',v:fd(saved.check_out)+' \u00b7 11:00 AM'});
-    if(saved.adults||saved.children){var g=(saved.adults||1)+' Adult'+((saved.adults||1)>1?'s':'');if(saved.children>0)g+=', '+saved.children+' Child';rows.push({l:'Guests',v:g});}
-    if(amount)rows.push({l:'Amount Paid',v:fmt(amount),g:true});
-    if(tracking)rows.push({l:'Tracking ID',v:tracking});
-    var rh=rows.map(function(r){return'<div class="row"><span class="lbl">'+r.l+'</span><span class="val '+(r.b?'bdg':r.g?'g':'')+'">'+r.v+'</span></div>';}).join('');
-    var gh=saved.name?'<div class="guest"><div class="av">'+ini+'</div><div class="gi"><strong>'+saved.name+'</strong><span>'+(saved.phone?'\ud83d\udcde '+saved.phone:'')+(saved.email?' &nbsp;\u00b7 \u2709 '+saved.email:'')+'</span></div></div>':'';
-    var eh=saved.email?'<div class="enote"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Confirmation sent to <strong style="margin-left:4px">'+saved.email+'</strong></div>':'';
-    card.innerHTML='<div class="s-hero"><div class="ring"><svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="s-title">Booking Confirmed! &#127881;</div><p class="s-sub">Your stay at Cloud Nandy Hills is secured. We look forward to welcoming you!</p></div>'
-      +gh+'<div class="sec"><div class="sec-lbl">Booking Summary</div><div class="grid">'+rh+'</div></div>'+eh
-      +'<div class="cdwrap" id="cdw"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="cdtxt">Auto-returning home in <strong id="cdt">3:00</strong></span><div class="btrack"><div class="bfill" id="cdb"></div></div></div>'
-      +'<div class="acts"><button id="bpdf" class="btn pdf"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download PDF</button>'
-      +'<a href="./index.html" class="btn home" id="bhome"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Go to Home</a></div>';
-    localStorage.removeItem('cloudNandyLatestBooking');
-    pdf();
-  }
+    <!-- Card Content Container -->
+    <div class="booking-card" id="bookingCard">
+      <div class="loader-wrap">
+        <div class="spinner"></div>
+        <p>Verifying booking &amp; payment status with Cloud Nandy Hills&hellip;</p>
+      </div>
+    </div>
+  </main>
 
-  function fail(){
-    var c=status==='cancelled'||status==='aborted';
-    card.innerHTML='<div class="f-hero"><div class="f-icon"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'+(c?'<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>':'<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>')+'</svg></div>'
-      +'<div class="f-title">'+(c?'Payment Cancelled':'Payment Failed')+'</div><p class="f-sub">'+(c?'You cancelled the payment. Your booking was not confirmed.':'Your payment could not be processed. Please try again.')+'</p></div>'
-      +'<div class="sec"><div class="grid">'+(orderId?'<div class="row"><span class="lbl">Booking Ref</span><span class="val">'+ref+'</span></div>':'')+'<div class="row"><span class="lbl">Status</span><span class="val" style="color:#ef4444">'+status.toUpperCase()+'</span></div></div></div>'
-      +'<div class="enote" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412;margin-top:14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2A19.79 19.79 0 0113.19 19a19.5 19.5 0 01-6-6A19.79 19.79 0 013.1 6.18 2 2 0 015.07 4h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L9.09 11.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>Need help? Call: <strong style="margin-left:4px">090957 44759</strong></div>'
-      +'<div class="acts"><a href="./booking.html" class="btn home">&#8617; Try Again</a><a href="./index.html" class="btn sec2">&#127968; Go to Home</a></div>';
-  }
+  <!-- Include jsPDF for Instant PDF Voucher Download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase-config.js?v=20"></script>
 
-  function countdown(){
-    var T=180,r=T,cdt=document.getElementById('cdt'),cdb=document.getElementById('cdb');
-    if(!cdt)return;
-    var tmr=setInterval(function(){r--;var m=Math.floor(r/60),s=r%60;cdt.textContent=m+':'+(s<10?'0':'')+s;cdb.style.width=(r/T*100)+'%';if(r<=0){clearInterval(tmr);location.href='./index.html';}},1000);
-    var bh=document.getElementById('bhome');if(bh)bh.addEventListener('click',function(){clearInterval(tmr);});
-  }
+  <script>
+    (async function () {
+      "use strict";
 
-  function confetti(){
-    var cv=document.getElementById('confettiCanvas');if(!cv)return;
-    var ctx=cv.getContext('2d');cv.width=innerWidth;cv.height=innerHeight;
-    var cols=['#16a34a','#22c55e','#4ade80','#b45f3c','#fbbf24','#dcfce7','#fff'];
-    var ps=[];for(var i=0;i<110;i++)ps.push({x:Math.random()*cv.width,y:-20-Math.random()*80,w:6+Math.random()*8,h:10+Math.random()*6,r:Math.random()*Math.PI*2,dr:(Math.random()-.5)*.15,vx:(Math.random()-.5)*2,vy:2+Math.random()*4,c:cols[Math.floor(Math.random()*cols.length)],a:1});
-    function draw(){ctx.clearRect(0,0,cv.width,cv.height);var alive=false;ps.forEach(function(p){p.x+=p.vx;p.y+=p.vy;p.r+=p.dr;if(p.y>cv.height)p.a-=.05;if(p.a>0)alive=true;ctx.save();ctx.globalAlpha=Math.max(p.a,0);ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);ctx.restore();});if(alive)requestAnimationFrame(draw);}
-    draw();
-  }
+      const card = document.getElementById("bookingCard");
+      const toast = document.getElementById("toastMsg");
 
-  function pdf(){
-    var btn=document.getElementById('bpdf');if(!btn)return;
-    btn.addEventListener('click',function(){
-      if(!window.jspdf){alert('PDF library not loaded. Please refresh.');return;}
-      var doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
-      var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),m=48,cW=W-m*2,y=m;
-      var safe=function(v){return String(v||'\u2014');};
-      doc.setFillColor(23,33,29);doc.rect(0,0,W,70,'F');
-      doc.setFillColor(180,95,60);doc.circle(m+20,35,18,'F');
-      doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(255,255,255);doc.text('CNH',m+20,39,{align:'center'});
-      doc.setFontSize(18);doc.text('Cloud Nandy Hills',m+46,32);
-      doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(156,163,175);
-      doc.text('Poombarai, Kodaikanal \u00b7 Tamil Nadu 624103',m+46,46);
-      doc.text('cloudynandyhills.com  \u00b7  090957 44759',m+46,58);
-      doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(156,163,175);doc.text('BOOKING REFERENCE',W-m,26,{align:'right'});
-      doc.setFontSize(12);doc.setTextColor(255,255,255);doc.text(safe(ref),W-m,44,{align:'right'});
-      if(tracking){doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(156,163,175);doc.text('TXN: '+tracking,W-m,58,{align:'right'});}
-      y=90;
-      doc.setFillColor(22,163,74);doc.roundedRect(m,y,110,24,6,6,'F');doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(255,255,255);doc.text('\u2713  CONFIRMED',m+55,y+15.5,{align:'center'});
-      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(107,114,128);doc.text('Generated: '+new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}),W-m,y+16,{align:'right'});
-      y+=44;
-      function st(t){doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(180,95,60);doc.text(t,m,y);y+=5;doc.setDrawColor(180,95,60);doc.setLineWidth(.4);doc.line(m,y,m+cW,y);y+=14;}
-      function rw(l,v,sh){if(sh){doc.setFillColor(249,250,251);doc.rect(m,y-12,cW,22,'F');}doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(107,114,128);doc.text(l,m+6,y);doc.setFont('helvetica','bold');doc.setTextColor(30,41,59);doc.text(safe(v),m+cW*.46,y);y+=22;}
-      st('GUEST INFORMATION');if(saved.name)rw('Full Name',saved.name,false);if(saved.phone)rw('Phone',saved.phone,true);if(saved.email)rw('Email',saved.email,false);y+=10;
-      st('STAY DETAILS');if(saved.room)rw('Room / Cabin',saved.room,false);if(saved.check_in)rw('Check-In',fd(saved.check_in)+' at 1:00 PM',true);if(saved.check_out)rw('Check-Out',fd(saved.check_out)+' at 11:00 AM',false);if(saved.adults)rw('Adults',saved.adults,true);if(saved.children)rw('Children',saved.children,false);if(saved.requests)rw('Special Requests',saved.requests,true);y+=10;
-      st('PAYMENT INFORMATION');rw('Payment Status','CONFIRMED',false);if(amount)rw('Amount Paid',fmt(amount),true);rw('Order ID',orderId||'\u2014',false);if(tracking)rw('Tracking ID',tracking,true);y+=16;
-      doc.setFillColor(240,237,232);doc.roundedRect(m,y,cW,56,6,6,'F');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(23,33,29);doc.text('Property Policies',m+10,y+14);doc.setFont('helvetica','normal');doc.setTextColor(107,114,128);doc.text('\u2022 Check-in: 1:00 PM  |  Check-out: 11:00 AM',m+10,y+28);doc.text('\u2022 Please carry a valid government-issued photo ID.',m+10,y+41);
-      doc.setDrawColor(229,231,235);doc.setLineWidth(.5);doc.line(m,H-48,W-m,H-48);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(148,163,184);doc.text('Thank you for choosing Cloud Nandy Hills. For queries: 090957 44759',W/2,H-32,{align:'center'});doc.text('No.5/166, Kochakanal Street, Poombarai, Kodaikanal, Tamil Nadu 624103',W/2,H-18,{align:'center'});
-      doc.save('CloudNandy_Booking_'+(orderId||'receipt').replace(/[^A-Z0-9\-]/gi,'')+'.pdf');
-    });
-  }
-})();
-</script>
+      function showToast(msg) {
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 3500);
+      }
+
+      // Parse Query Parameters
+      const params = new URLSearchParams(window.location.search);
+      const rawStatus = (params.get("status") || "").toLowerCase();
+      const orderId = params.get("order_id") || "";
+      const trackingId = params.get("tracking") || "";
+      const amountParam = params.get("amount") || "";
+
+      const isSuccess = rawStatus === "success" || rawStatus === "confirmed";
+
+      // 1. Retrieve booking data from LocalStorage first (cached before payment redirect)
+      let bookingData = {};
+      try {
+        const stored = localStorage.getItem("cloudNandyLatestBooking");
+        if (stored) bookingData = JSON.parse(stored);
+      } catch (e) {
+        bookingData = {};
+      }
+
+      // 2. Fallback: If localStorage was cleared (e.g. reload or email link), fetch directly from Supabase
+      if ((!bookingData.name || !bookingData.room) && orderId) {
+        try {
+          const cfg = window.CLOUD_NANDY_SUPABASE || window.SUPABASE_CONFIG || {};
+          const url = cfg.url || "https://wyjkehxbybkakgxdnoje.supabase.co";
+          const key = cfg.key || cfg.anonKey || "sb_publishable_FmN54Y2I0thkiRcGsoZWzg_VSfI6Dia";
+          if (window.supabase) {
+            const client = window.supabase.createClient(url, key);
+            const { data } = await client
+              .from("bookings")
+              .select("*")
+              .eq("order_id", orderId)
+              .maybeSingle();
+
+            if (data) {
+              bookingData = {
+                name: data.name,
+                email: data.email,
+                phone: data.phone,
+                room: data.room,
+                check_in: data.check_in,
+                check_out: data.check_out,
+                adults: data.adults,
+                children: data.children,
+                total_amount: data.total_amount,
+                requests: data.requests,
+                order_id: data.order_id,
+                status: data.status,
+              };
+            }
+          }
+        } catch (dbErr) {
+          console.warn("Could not query Supabase for booking details:", dbErr);
+        }
+      }
+
+      // Formatters
+      const formatCurrency = (val) => {
+        const num = Number(val) || 0;
+        return "₹" + num.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+      };
+
+      const formatDate = (d) => {
+        if (!d) return "—";
+        try {
+          const dt = new Date(d + "T00:00:00");
+          return dt.toLocaleDateString("en-IN", {
+            weekday: "short",
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          });
+        } catch (e) {
+          return d;
+        }
+      };
+
+      const calculateNights = (inDate, outDate) => {
+        if (!inDate || !outDate) return 1;
+        const s = new Date(inDate + "T00:00:00");
+        const e = new Date(outDate + "T00:00:00");
+        const diff = Math.round((e - s) / 86400000);
+        return Math.max(1, isNaN(diff) ? 1 : diff);
+      };
+
+      const nights = calculateNights(bookingData.check_in, bookingData.check_out);
+      const totalAmount = amountParam || bookingData.total_amount || 0;
+      const refId = orderId || bookingData.order_id || "CNH-CONFIRMED";
+
+      // ── Render Views ────────────────────────────────────────────────────────
+      if (isSuccess) {
+        renderSuccessView();
+        launchConfetti();
+      } else {
+        renderFailureView();
+      }
+
+      // ── SUCCESS VIEW ────────────────────────────────────────────────────────
+      function renderSuccessView() {
+        const guestInitials = (bookingData.name || "G").charAt(0).toUpperCase();
+        const guestsText = `${bookingData.adults || 1} Adult${(bookingData.adults || 1) > 1 ? "s" : ""}` +
+          (bookingData.children > 0 ? `, ${bookingData.children} Child${bookingData.children > 1 ? "ren" : ""}` : "");
+
+        card.innerHTML = `
+          <!-- Hero Banner -->
+          <div class="hero-success">
+            <div class="status-ring success-ring">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <h2 class="hero-title">Booking Confirmed! 🎉</h2>
+            <p class="hero-subtitle success">
+              Your stay at Cloud Nandy Hills has been successfully reserved and confirmed. We look forward to welcoming you to the misty hills!
+            </p>
+          </div>
+
+          <!-- Body -->
+          <div class="card-body">
+            <!-- Guest Highlight -->
+            ${bookingData.name ? `
+              <div class="guest-highlight-card">
+                <div class="guest-avatar">${guestInitials}</div>
+                <div class="guest-info">
+                  <h3>${escapeHtml(bookingData.name)}</h3>
+                  <p>
+                    ${bookingData.phone ? `<span>📞 ${escapeHtml(bookingData.phone)}</span>` : ""}
+                    ${bookingData.email ? `<span>✉️ ${escapeHtml(bookingData.email)}</span>` : ""}
+                  </p>
+                </div>
+              </div>
+            ` : ""}
+
+            <!-- Stay Summary -->
+            <div class="section-label">
+              <span>Reservation Details</span>
+              <span class="badge-status confirmed">● CONFIRMED</span>
+            </div>
+
+            <div class="details-table">
+              <div class="table-row">
+                <span class="row-label">Booking Reference</span>
+                <span class="row-value">
+                  <code>${refId}</code>
+                  <button type="button" class="copy-btn" id="btnCopyRef">Copy</button>
+                </span>
+              </div>
+              ${trackingId ? `
+                <div class="table-row">
+                  <span class="row-label">Payment Transaction ID</span>
+                  <span class="row-value"><small>${trackingId}</small></span>
+                </div>
+              ` : ""}
+              <div class="table-row">
+                <span class="row-label">Cabin / Room</span>
+                <span class="row-value">${escapeHtml(bookingData.room || "Luxury Mountain Cabin")}</span>
+              </div>
+              <div class="table-row">
+                <span class="row-label">Check-In</span>
+                <span class="row-value">${formatDate(bookingData.check_in)} &middot; 1:00 PM</span>
+              </div>
+              <div class="table-row">
+                <span class="row-label">Check-Out</span>
+                <span class="row-value">${formatDate(bookingData.check_out)} &middot; 11:00 AM</span>
+              </div>
+              <div class="table-row">
+                <span class="row-label">Duration &amp; Guests</span>
+                <span class="row-value">${nights} Night${nights > 1 ? "s" : ""} &middot; ${guestsText}</span>
+              </div>
+              <div class="table-row">
+                <span class="row-label">Amount Paid</span>
+                <span class="row-value price">${formatCurrency(totalAmount)}</span>
+              </div>
+              <div class="table-row">
+                <span class="row-label">Payment Status</span>
+                <span class="row-value" style="color:#10b981;font-weight:700;">Verified &amp; Paid (CCAvenue)</span>
+              </div>
+            </div>
+
+            <!-- Important Notes -->
+            <div class="notice-box">
+              <strong>✨ What's Next?</strong><br>
+              • Check-in starts at 1:00 PM. Please present a valid government-issued photo ID upon arrival.<br>
+              • Complimentary hill breakfast (CP plan) is included with your stay.<br>
+              • A confirmation SMS and email have been dispatched to your contact details.
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="actions-grid">
+              <button type="button" class="action-btn btn-primary" id="btnDownloadPdf">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Download PDF Confirmation</span>
+              </button>
+
+              <a href="./index.html" class="action-btn btn-secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                <span>Return to Home</span>
+              </a>
+            </div>
+          </div>
+        `;
+
+        // Wire copy button
+        const btnCopy = document.getElementById("btnCopyRef");
+        if (btnCopy) {
+          btnCopy.addEventListener("click", () => {
+            navigator.clipboard.writeText(refId).then(() => {
+              showToast("Booking ID copied to clipboard!");
+            }).catch(() => {});
+          });
+        }
+
+        // Wire PDF Download button
+        const btnPdf = document.getElementById("btnDownloadPdf");
+        if (btnPdf) {
+          btnPdf.addEventListener("click", generateAndDownloadPdf);
+        }
+      }
+
+      // ── FAILURE / CANCELLED VIEW ────────────────────────────────────────────
+      function renderFailureView() {
+        const isCancelledByUser = rawStatus === "cancelled" || rawStatus === "aborted";
+
+        card.innerHTML = `
+          <!-- Hero Banner -->
+          <div class="hero-failure">
+            <div class="status-ring failure-ring">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+            </div>
+            <h2 class="hero-title">${isCancelledByUser ? "Payment Cancelled" : "Payment Unsuccessful"}</h2>
+            <p class="hero-subtitle failure">
+              ${isCancelledByUser
+                ? "The payment process was cancelled before completion. This booking has been marked as Cancelled and the cabin dates have been released."
+                : "Your payment transaction could not be processed by the gateway. The booking has been moved to Cancelled to prevent incorrect room blocks."}
+            </p>
+          </div>
+
+          <!-- Body -->
+          <div class="card-body">
+            <div class="section-label">
+              <span>Transaction Summary</span>
+              <span class="badge-status cancelled">● CANCELLED</span>
+            </div>
+
+            <div class="details-table">
+              ${refId ? `
+                <div class="table-row">
+                  <span class="row-label">Order Reference</span>
+                  <span class="row-value"><code>${refId}</code></span>
+                </div>
+              ` : ""}
+              ${bookingData.room ? `
+                <div class="table-row">
+                  <span class="row-label">Attempted Cabin</span>
+                  <span class="row-value">${escapeHtml(bookingData.room)}</span>
+                </div>
+              ` : ""}
+              ${bookingData.check_in && bookingData.check_out ? `
+                <div class="table-row">
+                  <span class="row-label">Selected Dates</span>
+                  <span class="row-value">${formatDate(bookingData.check_in)} &rarr; ${formatDate(bookingData.check_out)}</span>
+                </div>
+              ` : ""}
+              <div class="table-row">
+                <span class="row-label">Booking Status</span>
+                <span class="row-value" style="color:#ef4444;font-weight:700;">Cancelled / Dates Released</span>
+              </div>
+            </div>
+
+            <!-- Failure Explanation -->
+            <div class="notice-box failure-notice">
+              <strong>Need Assistance?</strong><br>
+              • If money was debited from your bank account or card, it will be automatically refunded by your banking partner within 3 to 5 business days.<br>
+              • You can try booking again with an alternate payment method (UPI, Netbanking, Credit/Debit Card), or contact our concierge directly.
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="actions-grid">
+              <a href="./booking.html" class="action-btn btn-danger">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="1 4 1 10 7 10"></polyline>
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+                <span>Try Booking Again</span>
+              </a>
+
+              <a href="tel:+919095744759" class="action-btn btn-secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                </svg>
+                <span>Call Resort: 090957 44759</span>
+              </a>
+            </div>
+          </div>
+        `;
+      }
+
+      // ── PDF GENERATOR (High-Resolution Official Receipt) ───────────────────────
+      function generateAndDownloadPdf() {
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+          alert("PDF generator library is still loading. Please wait 2 seconds and click again.");
+          return;
+        }
+
+        const doc = new window.jspdf.jsPDF({ unit: "pt", format: "a4" });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 44;
+        const contentWidth = pageWidth - margin * 2;
+        let y = margin;
+
+        const safeStr = (v) => String(v || "—");
+
+        // 1. Top Brand Banner
+        doc.setFillColor(13, 25, 18); // Deep forest green
+        doc.rect(0, 0, pageWidth, 84, "F");
+
+        // Monogram Icon
+        doc.setFillColor(180, 95, 60); // Terracotta brand
+        doc.circle(margin + 22, 42, 20, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.setTextColor(255, 255, 255);
+        doc.text("CNH", margin + 22, 47, { align: "center" });
+
+        // Resort Name & Address
+        doc.setFontSize(20);
+        doc.text("Cloud Nandy Hills", margin + 54, 38);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(156, 163, 175);
+        doc.text("Poombarai, Kodaikanal · Tamil Nadu 624103", margin + 54, 52);
+        doc.text("www.cloudynandyhills.com  ·  090957 44759", margin + 54, 65);
+
+        // Header Right: Reference & Date
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(229, 184, 105); // Gold
+        doc.text("OFFICIAL BOOKING CONFIRMATION", pageWidth - margin, 32, { align: "right" });
+        doc.setFontSize(11);
+        doc.setTextColor(255, 255, 255);
+        doc.text(safeStr(refId), pageWidth - margin, 48, { align: "right" });
+        if (trackingId) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(156, 163, 175);
+          doc.text("TXN: " + trackingId, pageWidth - margin, 62, { align: "right" });
+        }
+
+        y = 110;
+
+        // 2. Verified Status Badge
+        doc.setFillColor(16, 185, 129); // Emerald
+        doc.roundedRect(margin, y, 130, 26, 6, 6, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text("✓  CONFIRMED & PAID", margin + 65, y + 17, { align: "center" });
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(100, 116, 139);
+        const issuedDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+        doc.text("Issued: " + issuedDate, pageWidth - margin, y + 17, { align: "right" });
+
+        y += 48;
+
+        // Section Drawer Helper
+        function drawSectionHeader(title) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(180, 95, 60);
+          doc.text(title, margin, y);
+          y += 5;
+          doc.setDrawColor(180, 95, 60);
+          doc.setLineWidth(0.6);
+          doc.line(margin, y, margin + contentWidth, y);
+          y += 16;
+        }
+
+        function drawRow(label, value, isStriped = false) {
+          if (isStriped) {
+            doc.setFillColor(248, 250, 252);
+            doc.rect(margin, y - 11, contentWidth, 22, "F");
+          }
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.setTextColor(100, 116, 139);
+          doc.text(label, margin + 8, y + 3);
+
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(30, 41, 59);
+          doc.text(safeStr(value), margin + contentWidth * 0.44, y + 3);
+          y += 22;
+        }
+
+        // Section: Guest Information
+        drawSectionHeader("1. GUEST DETAILS");
+        if (bookingData.name) drawRow("Guest Name", bookingData.name, false);
+        if (bookingData.phone) drawRow("Phone Number", bookingData.phone, true);
+        if (bookingData.email) drawRow("Email Address", bookingData.email, false);
+        y += 12;
+
+        // Section: Stay Details
+        drawSectionHeader("2. RESERVATION & CABIN DETAILS");
+        drawRow("Cabin / Room", bookingData.room || "Luxury Mountain Cabin", false);
+        drawRow("Check-In Date", formatDate(bookingData.check_in) + " at 1:00 PM", true);
+        drawRow("Check-Out Date", formatDate(bookingData.check_out) + " at 11:00 AM", false);
+        drawRow("Duration of Stay", nights + (nights === 1 ? " Night" : " Nights"), true);
+        drawRow("Guests", `${bookingData.adults || 1} Adults` + (bookingData.children > 0 ? `, ${bookingData.children} Children` : ""), false);
+        if (bookingData.requests) drawRow("Special Requests", bookingData.requests, true);
+        y += 12;
+
+        // Section: Financial Receipt
+        drawSectionHeader("3. PAYMENT SUMMARY");
+        drawRow("Booking Reference ID", refId, false);
+        drawRow("Payment Gateway", "CCAvenue (Secure Online)", true);
+        if (trackingId) drawRow("Transaction Reference", trackingId, false);
+        drawRow("Total Amount Paid", formatCurrency(totalAmount) + " (Inclusive of all taxes)", true);
+        drawRow("Payment Status", "COMPLETED & CONFIRMED", false);
+        y += 16;
+
+        // Section: Policies & Rules Box
+        doc.setFillColor(248, 250, 248);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.6);
+        doc.roundedRect(margin, y, contentWidth, 70, 6, 6, "FD");
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text("Resort Policies & Instructions", margin + 12, y + 16);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+        doc.text("• Check-in starts at 1:00 PM. Check-out is strictly by 11:00 AM to allow preparation for incoming guests.", margin + 12, y + 32);
+        doc.text("• Please present valid government photo identification (Aadhaar / Passport / Driving License) upon arrival.", margin + 12, y + 46);
+        doc.text("• Hill breakfast (CP) is served complimentary between 8:00 AM and 10:30 AM at the panoramic dining deck.", margin + 12, y + 60);
+
+        // Footer
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.5);
+        doc.line(margin, pageHeight - 50, pageWidth - margin, pageHeight - 50);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text("Cloud Nandy Hills · Poombarai Village, Kodaikanal, Tamil Nadu 624103 · Helpline: 090957 44759", pageWidth / 2, pageHeight - 34, { align: "center" });
+        doc.text("This document is an electronically generated reservation voucher and official payment receipt.", pageWidth / 2, pageHeight - 20, { align: "center" });
+
+        // Save PDF
+        const cleanFilename = ("CloudNandy_Booking_" + refId).replace(/[^A-Za-z0-9_\-]/g, "_") + ".pdf";
+        doc.save(cleanFilename);
+        showToast("✓ Downloaded PDF confirmation voucher!");
+      }
+
+      // ── Confetti Celebration Animation ──────────────────────────────────────
+      function launchConfetti() {
+        const cv = document.getElementById("confettiCanvas");
+        if (!cv) return;
+        const ctx = cv.getContext("2d");
+        cv.width = window.innerWidth;
+        cv.height = window.innerHeight;
+
+        const colors = ["#10b981", "#34d399", "#b45f3c", "#e5b869", "#fbbf24", "#ffffff", "#059669"];
+        const particles = [];
+        const count = 120;
+
+        for (let i = 0; i < count; i++) {
+          particles.push({
+            x: Math.random() * cv.width,
+            y: -20 - Math.random() * 100,
+            w: 6 + Math.random() * 8,
+            h: 10 + Math.random() * 8,
+            rotation: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 0.16,
+            vx: (Math.random() - 0.5) * 3,
+            vy: 2.5 + Math.random() * 4.5,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            alpha: 1,
+          });
+        }
+
+        let animationFrame;
+        function render() {
+          ctx.clearRect(0, 0, cv.width, cv.height);
+          let hasActive = false;
+
+          particles.forEach((p) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.rotation += p.rotSpeed;
+            if (p.y > cv.height - 40) p.alpha -= 0.035;
+            if (p.alpha > 0) hasActive = true;
+
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, p.alpha);
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+          });
+
+          if (hasActive) {
+            animationFrame = requestAnimationFrame(render);
+          } else {
+            ctx.clearRect(0, 0, cv.width, cv.height);
+          }
+        }
+
+        render();
+
+        window.addEventListener("resize", () => {
+          cv.width = window.innerWidth;
+          cv.height = window.innerHeight;
+        });
+      }
+
+      function escapeHtml(str) {
+        return String(str || "").replace(/[&<>"']/g, (m) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;",
+        }[m]));
+      }
+    })();
+  </script>
 </body>
 </html>

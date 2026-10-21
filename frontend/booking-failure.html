@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Booking Cancelled | Cloud Nandy Hills</title>
+  <script>
+    const p = new URLSearchParams(window.location.search);
+    if (!p.has('status')) p.set('status', 'failed');
+    window.location.replace('./payment-return.html?' + p.toString());
+  </script>
+</head>
+<body style="background:#08110e;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+  <p>Redirecting to booking failure details&hellip;</p>
+</body>
+</html>
